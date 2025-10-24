@@ -18,7 +18,7 @@ class ResNet18For10class(nn.Module):
         self.model.fc = nn.Linear(self.model.fc.in_features, 10)
         
         self.model.eval()
-        self.state_path = "rn1810c" + data_type + ".pth"
+        self.state_path = "pretrained/rn1810c" + data_type + ".pth"
         self.lossfunc = nn.CrossEntropyLoss()
         self.optimizer = SGD(self.model.parameters(), lr=0.001, momentum=0.9)
     

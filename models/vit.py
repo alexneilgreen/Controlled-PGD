@@ -14,7 +14,7 @@ class ViTFor10Class():
     def __init__(self, data_type: str):
         super(ViTFor10Class, self).__init__()
         self.model = AutoModelForImageClassification.from_pretrained("WinKawaks/vit-tiny-patch16-224", num_labels=10, ignore_mismatched_sizes=True)
-        self.outpath =  "vitb10c" + data_type
+        self.outpath =  "pretrained/vitb10c" + data_type
         self.state_path = self.outpath + ".pth"
         self.metric = evaluate.load("accuracy")
         self.collator=BasicDataCollator()

@@ -7,8 +7,8 @@ dev = device("cuda" if cuda.is_available() else "cpu")
 
 if __name__ == "__main__":
     #entry point of program
-    #model = ResNet18For10class("cifar10test")
-    model = ViTFor10Class("cifarvit10test")
+    #model = ResNet18For10class("cifar10")
+    model = ViTFor10Class("cifar10")
     data = CifarDataLoader()
     tries = 0
     success = 0
