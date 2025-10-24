@@ -23,7 +23,8 @@ dist/
 *.pth
 *.ckpt
 checkpoints/
-models/
+pretrained/
+wandb/
 
 # Data directories (if applicable)
 data/
