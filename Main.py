@@ -33,6 +33,30 @@ if __name__ == "__main__":
     acc = 100 * (success/tries)
     print(f"clean accuracy={acc}")
 
+    acc = 100 * (success/tries)
+    print(f"clean accuracy={acc}")
+
+    # Prompt user for attack type
+    print("\nSelect attack type:")
+    print("\t1. PGD (Untargeted)")
+    print("\t2. CPGD (Targeted)")
+    
+    while True:
+        try:
+            choice = int(input("Enter choice (1 or 2): "))
+            if choice in [1, 2]:
+                break
+            else:
+                print("Error: Please enter 1 or 2")
+        except ValueError:
+            print("Error: Please enter a valid integer")
+
     adv = data.get_random_test_slice()
-    attack = UntargetedAttack(model, model.getLoss(), adv, lr=.001)
+    
+    if choice == 1:
+        attack = UntargetedAttack(model, model.getLoss(), adv, lr=.001)
+    else:  # choice == 2
+        from attack.attack_types import TargetedAttack
+        attack = TargetedAttack(model, model.getLoss(), adv, num_classes=10, lr=.001)
+    
     attack.execute_attack()
