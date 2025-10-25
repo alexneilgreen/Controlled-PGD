@@ -10,26 +10,28 @@ dev = device("cuda" if cuda.is_available() else "cpu")
 '''
 Fast implementation of Resnet18, adapted from HW1 to CPGD
 '''
-class ResNet18For10class(nn.Module):
-    def __init__(self, data_type: str):
-        super(ResNet18For10class, self).__init__()
+class ResNet18(nn.Module):
+    def __init__(self, data_type: str, num_classes: int):
+        super(ResNet18, self).__init__()
         w = ResNet18_Weights.DEFAULT
         self.model = resnet18(weights=w)
-        self.model.fc = nn.Linear(self.model.fc.in_features, 10)
+        self.model.fc = nn.Linear(self.model.fc.in_features, num_classes)
         
         self.model.eval()
         self.state_path = "pretrained/rn1810c" + data_type + ".pth"
         self.lossfunc = nn.CrossEntropyLoss()
         self.optimizer = SGD(self.model.parameters(), lr=0.001, momentum=0.9)
     
+    def set_pretrain_path(self, path: str):
+        self.state_path = path
+    
     def forward(self, x):
         return self.model(x)
     
     def training_loop(self, data):
-        loader = DataLoader(data, batch_size=64, shuffle=True)
         for e in range(10):
             running_loss = 0.0
-            for images, labels in loader:
+            for images, labels in data:
                 self.optimizer.zero_grad()
                 images, labels = images.to(dev), labels.to(dev)
                 output = self.model(images)

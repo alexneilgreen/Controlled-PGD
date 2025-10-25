@@ -1,12 +1,10 @@
-import torch
 import torchvision
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, Subset
 from torchvision import transforms
-import numpy as np
-from PIL import Image
 import os
 import argparse
-from typing import Dict, List, Tuple, Optional
+from torch import randperm
+from typing import List, Optional
 
 class AdaptiveDataset(Dataset):
     """
@@ -17,7 +15,7 @@ class AdaptiveDataset(Dataset):
     def __init__(self, 
                  dataset_name: str, 
                  split: str = 'train',
-                 root: str = './Data',
+                 root: str = './data',
                  transform: Optional[transforms.Compose] = None):
         """
         Initialize the adaptive dataset.
@@ -32,6 +30,12 @@ class AdaptiveDataset(Dataset):
         self.split = split
         self.root = root
         self.transform = transform
+        self.c10T = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Resize(224),
+                # cifar10 normalization values (known)
+                transforms.Normalize((.5,.5,.5), (.5,.5,.5))
+            ])
         
         # Load the appropriate dataset
         self.dataset = self._load_dataset()
@@ -50,11 +54,13 @@ class AdaptiveDataset(Dataset):
             
             if self.split == 'train':
                 return torchvision.datasets.MNIST(
-                    root=self.root, train=True, download=download_needed, transform=base_transform
+                    root=self.root, train=True, download=download_needed,
+                    transform=base_transform
                 )
             else:  # test
                 return torchvision.datasets.MNIST(
-                    root=self.root, train=False, download=download_needed, transform=base_transform
+                    root=self.root, train=False, download=download_needed,
+                    transform=base_transform
                 )
         
         elif self.dataset_name == 'cifar10':
@@ -64,11 +70,13 @@ class AdaptiveDataset(Dataset):
             
             if self.split == 'train':
                 return torchvision.datasets.CIFAR10(
-                    root=self.root, train=True, download=download_needed, transform=base_transform
+                    root=self.root, train=True, download=download_needed,
+                    transform=self.c10T
                 )
             else:  # test
                 return torchvision.datasets.CIFAR10(
-                    root=self.root, train=False, download=download_needed, transform=base_transform
+                    root=self.root, train=False, download=download_needed,
+                    transform=self.c10T
                 )
         
         elif self.dataset_name == 'cifar100':
@@ -78,11 +86,13 @@ class AdaptiveDataset(Dataset):
             
             if self.split == 'train':
                 return torchvision.datasets.CIFAR100(
-                    root=self.root, train=True, download=download_needed, transform=base_transform
+                    root=self.root, train=True, download=download_needed,
+                    transform=base_transform
                 )
             else:  # test
                 return torchvision.datasets.CIFAR100(
-                    root=self.root, train=False, download=download_needed, transform=base_transform
+                    root=self.root, train=False, download=download_needed,
+                    transform=base_transform
                 )
         
         elif self.dataset_name == 'stl10':
@@ -93,7 +103,8 @@ class AdaptiveDataset(Dataset):
             # STL-10 has train/test/unlabeled splits
             split_map = {'train': 'train', 'test': 'test', 'val': 'test'}
             return torchvision.datasets.STL10(
-                root=self.root, split=split_map[self.split], download=download_needed, transform=base_transform
+                root=self.root, split=split_map[self.split], download=download_needed,
+                transform=base_transform
             )
         
         else:
@@ -128,7 +139,7 @@ def get_dataloader(dataset_name: str,
                   split: str = 'train',
                   batch_size: int = 32,
                   shuffle: bool = True,
-                  root: str = './Data',
+                  root: str = './data',
                   num_workers: int = 4) -> DataLoader:
     """
     Create a DataLoader for the specified dataset.
@@ -158,6 +169,25 @@ def get_dataloader(dataset_name: str,
         pin_memory=True
     )
 
+def get_random_test_slice(dataset_name: str, size=64,
+                batch_size: int = 64,
+                shuffle: bool = True,
+                root: str = './data',
+                num_workers: int = 4) -> DataLoader:
+    dataset = AdaptiveDataset(
+        dataset_name=dataset_name,
+        split="test",
+        root=root
+    )
+    indices = randperm(len(dataset))[:size]
+    dataSubSet = Subset(dataset, indices)
+    return DataLoader(
+        dataset=dataSubSet,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+        pin_memory=True
+    )
 
 def get_available_datasets() -> List[str]:
     """Return list of available datasets."""

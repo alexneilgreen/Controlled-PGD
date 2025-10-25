@@ -7,8 +7,6 @@ class CifarDataLoader:
     def __init__(self):
         self.cifar10data = None
         self.cifar10datatest = None
-        # move this to some data loader abstraction
-        # DO NOT continue to pollute this file with implementation
         self.rgbT = transforms.Compose([
                 transforms.ToTensor(),
                 transforms.Resize(224),
