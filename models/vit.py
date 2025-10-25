@@ -10,14 +10,17 @@ class BasicDataCollator:
         labels = tensor([pair[1] for pair in x])
         return {"pixel_values": data, "labels": labels}
 
-class ViTFor10Class():
-    def __init__(self, data_type: str):
-        super(ViTFor10Class, self).__init__()
-        self.model = AutoModelForImageClassification.from_pretrained("WinKawaks/vit-tiny-patch16-224", num_labels=10, ignore_mismatched_sizes=True)
+class ViT():
+    def __init__(self, data_type: str, num_classes: int):
+        super(ViT, self).__init__()
+        self.model = AutoModelForImageClassification.from_pretrained(
+            "WinKawaks/vit-tiny-patch16-224", num_labels=num_classes, ignore_mismatched_sizes=True)
         self.outpath =  "pretrained/vitb10c" + data_type
-        self.state_path = self.outpath + ".pth"
         self.metric = evaluate.load("accuracy")
         self.collator=BasicDataCollator()
+
+    def set_pretrain_path(self, path: str):
+        self.outpath = path
         
     def compute_metrics(self, eval_pred):
         logits, labels = eval_pred
@@ -54,7 +57,7 @@ class ViTFor10Class():
             model=self.model,
             data_collator=self.collator,
             args=training_args,
-            train_dataset=train,
+            train_dataset=train.dataset, #Trainer only accepts dataset object???
             compute_metrics=self.compute_metrics,
         )
         trainer.train()
