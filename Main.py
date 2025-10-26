@@ -1,9 +1,11 @@
-from torch import no_grad, device, cuda
-from models.dnn import ResNet18
-from models.vit import ViT
-from attack.attack_types import UntargetedAttack
-from dataloader.Data_Loader import get_dataloader, get_random_test_slice
 import argparse
+from torch import no_grad, device, cuda
+
+from Architecture.ResNet import ResNet18
+from Architecture.ViT import ViT
+from Attack.Classes import UntargetedAttack
+from Data_Loaders.Data_Loader import get_dataloader, get_random_test_slice
+
 dev = device("cuda" if cuda.is_available() else "cpu")
 
 def determine_num_classes(dsname):

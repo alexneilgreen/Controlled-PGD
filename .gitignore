@@ -22,18 +22,18 @@ dist/
 *.pt
 *.pth
 *.ckpt
-checkpoints/
-pretrained/
+Checkpoints/
+Pretrained/
 wandb/
 
 # Data directories (if applicable)
-data/
-datasets/
+Data/
+Datasets/
 
 # Logs and results
-logs/
-results/
-output/
+Logs/
+Results/
+Output/
 
 # IDE specific (e.g., VS Code, PyCharm)
 .vscode/
