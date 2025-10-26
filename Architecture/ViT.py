@@ -3,6 +3,7 @@ from transformers import AutoModelForImageClassification, Trainer, TrainingArgum
 from transformers.modeling_outputs import ImageClassifierOutput
 from torch import stack, argmax, tensor, nn
 from pathlib import Path
+import torch
 
 class BasicDataCollator:
     def __call__(self, x):
@@ -15,9 +16,11 @@ class ViT():
         super(ViT, self).__init__()
         self.model = AutoModelForImageClassification.from_pretrained(
             "WinKawaks/vit-tiny-patch16-224", num_labels=num_classes, ignore_mismatched_sizes=True)
-        self.outpath =  "Models/ViT_" + data_type.upper()
+        self.outpath = "Models/ViT_" + data_type.upper()
         self.metric = evaluate.load("accuracy")
-        self.collator=BasicDataCollator()
+        self.collator = BasicDataCollator()
+        self.data_type = data_type
+        self.num_classes = num_classes
 
     def set_pretrain_path(self, path: str):
         self.outpath = path
