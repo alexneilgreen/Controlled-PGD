@@ -48,23 +48,50 @@ class ViT():
         self.model = self.model.to(device)
         return self
 
-    def training_loop(self, train):
+    def training_loop(self, train, epochs=10, lr=0.001, test_loader=None):
+        """
+        Train the ViT model using HuggingFace Trainer.
+        
+        Args:
+            train: Training dataloader
+            epochs: Number of training epochs
+            lr: Learning rate
+            test_loader: Optional test dataloader for evaluation
+        """
         self.model.train()
+        
+        # Determine evaluation strategy
+        eval_strategy = "epoch" if test_loader is not None else "no"
+        
         training_args = TrainingArguments(
             output_dir=self.outpath,
             remove_unused_columns=False,
             per_device_train_batch_size=64,
-            eval_strategy="no",
+            num_train_epochs=epochs,
+            learning_rate=lr,
+            eval_strategy=eval_strategy,
+            save_strategy="epoch",
+            load_best_model_at_end=True if test_loader is not None else False,
+            logging_steps=100,
         )
+        
         trainer = Trainer(
             model=self.model,
             data_collator=self.collator,
             args=training_args,
-            train_dataset=train.dataset, #Trainer only accepts dataset object???
+            train_dataset=train.dataset,  # Trainer only accepts dataset object
+            eval_dataset=test_loader.dataset if test_loader is not None else None,
             compute_metrics=self.compute_metrics,
         )
+        
+        print(f"\nTraining ViT for {epochs} epochs with lr={lr}...")
         trainer.train()
         self.model.eval()
+        
+        # Print final evaluation if test_loader provided
+        if test_loader is not None:
+            results = trainer.evaluate()
+            print(f"\nFinal Test Accuracy: {results.get('eval_accuracy', 0) * 100:.2f}%")
     
     def save(self):
         self.model.save_pretrained(self.outpath)
