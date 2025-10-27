@@ -1,6 +1,5 @@
 from torch import no_grad, zeros
 from torch.linalg import norm
-import torch
 
 class CPGD:
     def __init__(self, iterations=100, tolerance=0.000001, epsilon=0.3, alpha=0.01, num_classes=10, mapping=None):

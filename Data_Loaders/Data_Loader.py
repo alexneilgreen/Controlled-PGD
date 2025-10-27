@@ -15,7 +15,7 @@ class AdaptiveDataset(Dataset):
     def __init__(self, 
                  dataset_name: str, 
                  split: str = 'train',
-                 root: str = './data',
+                 root: str = './Data',
                  transform: Optional[transforms.Compose] = None,
                  target_size: int = None):
         """
@@ -148,7 +148,7 @@ def get_dataloader(dataset_name: str,
                   split: str = 'train',
                   batch_size: int = 32,
                   shuffle: bool = True,
-                  root: str = './data',
+                  root: str = './Data',
                   num_workers: int = 4,
                   target_size: int = None) -> DataLoader:
     """
@@ -184,7 +184,7 @@ def get_dataloader(dataset_name: str,
 def get_random_test_slice(dataset_name: str, size=64,
                 batch_size: int = 64,
                 shuffle: bool = True,
-                root: str = './data',
+                root: str = './Data',
                 num_workers: int = 4,
                 target_size: int = None) -> DataLoader:
     """

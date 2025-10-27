@@ -3,7 +3,7 @@ import torch
 
 from Attack.PGD import PGD
 from Attack.CPGD import CPGD
-from Result.Reporter import SimpleAccReporter, TargetedSuccessReporter
+from Results.Reporter import SimpleAccReporter, TargetedSuccessReporter
 
 dev = device("cuda" if cuda.is_available() else "cpu")
 

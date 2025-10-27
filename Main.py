@@ -83,7 +83,7 @@ def train_models_mode(args):
             )
             
             model = model.to(device=device)
-            model.training_loop(train_loader, epochs=args.epochs, lr=args.lr, test_loader=test_loader)
+            model.training_loop(train_loader, epochs=args.epochs, lr=args.lr, test_loader=test_loader, batch_size=args.batch_size)
             model.save()
 
 def get_available_models():
@@ -238,9 +238,9 @@ def main():
                        help='Model architecture to train')
     parser.add_argument('--dataset', type=str, choices=['mnist', 'cifar10', 'cifar100', 'stl10', 'all'], 
                        default='all', help='Dataset to use')
-    parser.add_argument('--epochs', type=int, default=10, help='Number of training epochs')
+    parser.add_argument('--epochs', type=int, default=15, help='Number of training epochs')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate for training')
-    parser.add_argument('--batch_size', type=int, default=128, help='Batch size')
+    parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
     parser.add_argument('--num_workers', type=int, default=4, help='Number of dataloader workers')
     parser.add_argument('--retrain', action='store_true', help='Retrain existing models')
     

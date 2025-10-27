@@ -1,3 +1,5 @@
+import os
+import csv
 import evaluate
 from transformers import AutoModelForImageClassification, Trainer, TrainingArguments
 from transformers.modeling_outputs import ImageClassifierOutput
@@ -27,8 +29,9 @@ class ViT():
         
     def compute_metrics(self, eval_pred):
         logits, labels = eval_pred
-        # convert the logits to their predicted class
-        predictions = argmax(logits, axis=-1)
+        # Use numpy's argmax instead of torch's argmax
+        import numpy as np
+        predictions = np.argmax(logits, axis=-1)
         return self.metric.compute(predictions=predictions, references=labels)
     
     def zero_grad(self):
@@ -48,7 +51,7 @@ class ViT():
         self.model = self.model.to(device)
         return self
 
-    def training_loop(self, train, epochs=10, lr=0.001, test_loader=None):
+    def training_loop(self, train, epochs=10, lr=0.001, test_loader=None, batch_size=64):
         """
         Train the ViT model using HuggingFace Trainer.
         
@@ -57,6 +60,7 @@ class ViT():
             epochs: Number of training epochs
             lr: Learning rate
             test_loader: Optional test dataloader for evaluation
+            batch_size: Batch size for training
         """
         self.model.train()
         
@@ -66,7 +70,7 @@ class ViT():
         training_args = TrainingArguments(
             output_dir=self.outpath,
             remove_unused_columns=False,
-            per_device_train_batch_size=64,
+            per_device_train_batch_size=batch_size,
             num_train_epochs=epochs,
             learning_rate=lr,
             eval_strategy=eval_strategy,
@@ -79,7 +83,7 @@ class ViT():
             model=self.model,
             data_collator=self.collator,
             args=training_args,
-            train_dataset=train.dataset,  # Trainer only accepts dataset object
+            train_dataset=train.dataset,
             eval_dataset=test_loader.dataset if test_loader is not None else None,
             compute_metrics=self.compute_metrics,
         )
@@ -88,10 +92,36 @@ class ViT():
         trainer.train()
         self.model.eval()
         
+        # Get final metrics
+        final_train_acc = 0.0
+        final_test_acc = 0.0
+        
+        # Compute training accuracy
+        train_results = trainer.evaluate(eval_dataset=train.dataset)
+        final_train_acc = train_results.get('eval_accuracy', 0) * 100
+        print(f"\nFinal Training Accuracy: {final_train_acc:.2f}%")
+        
         # Print final evaluation if test_loader provided
         if test_loader is not None:
             results = trainer.evaluate()
-            print(f"\nFinal Test Accuracy: {results.get('eval_accuracy', 0) * 100:.2f}%")
+            final_test_acc = results.get('eval_accuracy', 0) * 100
+            print(f"\nFinal Test Accuracy: {final_test_acc:.2f}%")
+        
+        # Note: HuggingFace Trainer doesn't have early stopping by default
+        # so early_stop is always False unless we add EarlyStoppingCallback
+        
+        # Save metrics to CSV
+        self._save_metrics_to_csv(
+            model_arch="ViT-Tiny",
+            dataset=self.data_type,
+            epochs=epochs,
+            epochs_completed=epochs,  # Trainer always completes all epochs
+            lr=lr,
+            batch_size=batch_size,
+            train_acc=final_train_acc,
+            test_acc=final_test_acc,
+            early_stop=False
+        )
     
     def save(self):
         self.model.save_pretrained(self.outpath)
@@ -109,3 +139,34 @@ class ViT():
         # Pretrained AutoModelForImageClassification always use CrossEntropyLoss
         # not queryable from model impl itself, sadly
         return nn.CrossEntropyLoss()
+    
+    def _save_metrics_to_csv(self, model_arch, dataset, epochs, epochs_completed, lr, batch_size, train_acc, test_acc, early_stop):
+        """Save training metrics to CSV file."""
+        csv_path = "Models/Training_Metrics.csv"
+        file_exists = os.path.isfile(csv_path)
+        
+        with open(csv_path, 'a', newline='') as f:
+            writer = csv.writer(f)
+            
+            # Write header if file doesn't exist
+            if not file_exists:
+                writer.writerow([
+                    'Model Architecture', 'Dataset', 'Max Epochs', 'Epochs Completed', 
+                    'Learning Rate', 'Batch Size', 'Training Accuracy', 'Test Accuracy', 
+                    'Early Stop Triggered'
+                ])
+            
+            # Write metrics
+            writer.writerow([
+                model_arch,
+                dataset.upper(),
+                epochs,
+                epochs_completed,
+                lr,
+                batch_size,
+                f"{train_acc:.2f}",
+                f"{test_acc:.2f}",
+                "Yes" if early_stop else "No"
+            ])
+        
+        print(f"Metrics saved to {csv_path}")
