@@ -11,7 +11,3 @@ datasets>=2.12.0
 accelerate>=0.26.0
 numpy>=1.24.0
 pillow>=9.5.0
-
-# Utilities
-argparse
-pathlib

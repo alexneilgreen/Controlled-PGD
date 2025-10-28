@@ -6,6 +6,7 @@ from transformers.modeling_outputs import ImageClassifierOutput
 from torch import stack, argmax, tensor, nn
 from pathlib import Path
 import torch
+import numpy as np
 
 class BasicDataCollator:
     def __call__(self, x):
@@ -18,7 +19,7 @@ class ViT():
         super(ViT, self).__init__()
         self.model = AutoModelForImageClassification.from_pretrained(
             "WinKawaks/vit-tiny-patch16-224", num_labels=num_classes, ignore_mismatched_sizes=True)
-        self.outpath = "Models/ViT_" + data_type.upper()
+        self.outpath = "Output/Models/ViT_" + data_type.upper()
         self.metric = evaluate.load("accuracy")
         self.collator = BasicDataCollator()
         self.data_type = data_type
@@ -29,9 +30,7 @@ class ViT():
         
     def compute_metrics(self, eval_pred):
         logits, labels = eval_pred
-        # Use numpy's argmax instead of torch's argmax
-        import numpy as np
-        predictions = np.argmax(logits, axis=-1)
+        predictions = np.argmax(logits, axis=-1)    # Using Numpy Argmax b/c HuggingFace's converts output to numpy array
         return self.metric.compute(predictions=predictions, references=labels)
     
     def zero_grad(self):
@@ -83,7 +82,7 @@ class ViT():
             model=self.model,
             data_collator=self.collator,
             args=training_args,
-            train_dataset=train.dataset,
+            train_dataset=train.dataset,    # Trainer only accepts dataset object???
             eval_dataset=test_loader.dataset if test_loader is not None else None,
             compute_metrics=self.compute_metrics,
         )
@@ -142,7 +141,7 @@ class ViT():
     
     def _save_metrics_to_csv(self, model_arch, dataset, epochs, epochs_completed, lr, batch_size, train_acc, test_acc, early_stop):
         """Save training metrics to CSV file."""
-        csv_path = "Models/Training_Metrics.csv"
+        csv_path = "Output/Models/Training_Metrics.csv"
         file_exists = os.path.isfile(csv_path)
         
         with open(csv_path, 'a', newline='') as f:

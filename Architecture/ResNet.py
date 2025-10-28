@@ -21,7 +21,7 @@ class ResNet18(nn.Module):
         self.model.fc = nn.Linear(self.model.fc.in_features, num_classes)
         
         self.model.eval()
-        self.state_path = "Models/ResNet_" + data_type.upper() + ".pth"
+        self.state_path = "Output/Models/ResNet_" + data_type.upper() + ".pth"
         self.lossfunc = nn.CrossEntropyLoss()
         self.optimizer = SGD(self.model.parameters(), lr=0.001, momentum=0.9)
     
@@ -128,7 +128,7 @@ class ResNetAlt(nn.Module):
     def __init__(self, data_type: str, num_classes: int, in_channels: int = 3):
         super(ResNetAlt, self).__init__()
         self.model = ResNet(BasicBlock, [2, 2, 2, 2], num_classes, in_channels)
-        self.state_path = "Models/ResNet_" + data_type.upper() + ".pth"
+        self.state_path = "Output/Models/ResNet_" + data_type.upper() + ".pth"
         self.lossfunc = nn.CrossEntropyLoss()
         self.num_classes = num_classes
         self.data_type = data_type
@@ -287,7 +287,7 @@ class ResNetAlt(nn.Module):
 
     def _save_metrics_to_csv(self, model_arch, dataset, epochs, epochs_completed, lr, batch_size, train_acc, test_acc, early_stop):
         """Save training metrics to CSV file."""
-        csv_path = "Models/Training_Metrics.csv"
+        csv_path = "Output/Models/Training_Metrics.csv"
         file_exists = os.path.isfile(csv_path)
         
         with open(csv_path, 'a', newline='') as f:

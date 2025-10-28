@@ -31,19 +31,24 @@ class SimpleAccReporter(BaseReporter):
         Collect statistics from a batch.
         
         Args:
-            results: Tuple of (num_misclassified, batch_size) or
-                     Tuple of (num_misclassified, batch_size, true_labels, pred_labels)
+            results: AttackResults object with fields:
+                    - num_misclassified: Number of misclassified samples
+                    - batch_size: Size of the batch
+                    - true_labels: True labels (optional, can be None)
+                    - pred_labels: Predicted labels (optional, can be None)
         """
-        if len(results) == 2:
-            num_misclassified, batch_size = results
-            self.total_misclassified += num_misclassified.item() if torch.is_tensor(num_misclassified) else num_misclassified
-            self.total_samples += batch_size
-        elif len(results) == 4:
-            num_misclassified, batch_size, true_labels, pred_labels = results
-            self.total_misclassified += num_misclassified.item() if torch.is_tensor(num_misclassified) else num_misclassified
-            self.total_samples += batch_size
-            
-            # Track per-class statistics
+        # Extract values from AttackResults object
+        num_misclassified = results.num_misclassified
+        batch_size = results.batch_size
+        true_labels = results.true_labels
+        pred_labels = results.pred_labels
+        
+        # Update total statistics
+        self.total_misclassified += num_misclassified.item() if torch.is_tensor(num_misclassified) else num_misclassified
+        self.total_samples += batch_size
+        
+        # If labels are provided, track per-class statistics
+        if true_labels is not None and pred_labels is not None:
             for true_label, pred_label in zip(true_labels, pred_labels):
                 true_label = true_label.item() if torch.is_tensor(true_label) else true_label
                 pred_label = pred_label.item() if torch.is_tensor(pred_label) else pred_label

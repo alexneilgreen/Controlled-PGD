@@ -1,11 +1,21 @@
 from torch import device, cuda
 import torch
+from dataclasses import dataclass
+from typing import Optional
 
 from Attack.PGD import PGD
 from Attack.CPGD import CPGD
-from Results.Reporter import SimpleAccReporter, TargetedSuccessReporter
+from Output.Results.Reporter import SimpleAccReporter, TargetedSuccessReporter
 
 dev = device("cuda" if cuda.is_available() else "cpu")
+
+@dataclass
+class AttackResults:
+    """Plain Old Data (POD) class for storing attack results."""
+    num_misclassified: int = 0
+    batch_size: int = 0
+    true_labels: Optional[torch.Tensor] = None
+    pred_labels: Optional[torch.Tensor] = None
 
 class UntargetedAttack:
     def __init__(self, model, loss, dataloader, save_path=None, **kwargs):
@@ -45,12 +55,15 @@ class UntargetedAttack:
             
             # Collect statistics with class information
             misclassified = (advlabel != label)
-            self.reporter.collect((
-                misclassified.sum(),
-                advx.size(dim=0),
-                label.cpu(),
-                advlabel.cpu()
-            ))
+            
+            results = AttackResults(
+                num_misclassified=misclassified.sum(),
+                batch_size=advx.size(dim=0),
+                true_labels=label.cpu(),
+                pred_labels=advlabel.cpu()
+            )
+            
+            self.reporter.collect(results)
             
             if (batch_idx + 1) % 10 == 0:
                 print(f"Processed {batch_idx + 1}/{len(self.dataloader)} batches")
@@ -75,15 +88,15 @@ class TargetedAttack:
         if 'lr' in kwargs:
             alpha = kwargs['lr']
 
-        self.cpgd = CPGD(iterations=iterations, tolerance=tolerance, 
-                        num_classes=num_classes, epsilon=epsilon, alpha=alpha)
-        
         # Set mapping if provided
         if mapping is not None:
-            self.cpgd.set_mapping(mapping)
-        
-        self.reporter = SimpleAccReporter(save_path=save_path)
-        self.targeted_reporter = TargetedSuccessReporter(num_classes, mapping if mapping else self.cpgd.mapping, save_path=save_path)
+            self.cpgd = CPGD(iterations=iterations, tolerance=tolerance, 
+                        num_classes=num_classes, epsilon=epsilon, alpha=alpha, mapping=mapping)
+
+            self.reporter = SimpleAccReporter(save_path=save_path)
+            self.targeted_reporter = TargetedSuccessReporter(num_classes, mapping if mapping else self.cpgd.mapping, save_path=save_path)
+        else:
+            print("\n No mapping for CPGD attack. Please restart with mapping.")
 
     def execute_attack(self):
         print("\nExecuting CPGD Attack...")
@@ -106,12 +119,15 @@ class TargetedAttack:
             
             # Collect general statistics
             misclassified = (advlabel != label)
-            self.reporter.collect((
-                misclassified.sum(),
-                advx.size(dim=0),
-                label.cpu(),
-                advlabel.cpu()
-            ))
+            
+            results = AttackResults(
+                num_misclassified=misclassified.sum(),
+                batch_size=advx.size(dim=0),
+                true_labels=label.cpu(),
+                pred_labels=advlabel.cpu()
+            )
+            
+            self.reporter.collect(results)
             
             # Collect targeted attack statistics
             self.targeted_reporter.collect(

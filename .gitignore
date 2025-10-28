@@ -23,8 +23,16 @@ dist/
 *.pth
 *.ckpt
 Checkpoints/
-Models/
 wandb/
+
+# Output directories - keep structure but ignore contents
+Output/Models/*
+!Output/Models/.gitkeep
+!Output/Models/__init__.py
+Output/Results/*
+!Output/Results/.gitkeep
+!Output/Results/__init__.py
+!Output/Results/Reporter.py
 
 # Data directories (if applicable)
 Data/

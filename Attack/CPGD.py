@@ -21,10 +21,6 @@ class CPGD:
         self.num_classes = num_classes
         self.mapping = mapping
 
-    def set_mapping(self, mapping):
-        """Set the class mapping for targeted attacks."""
-        self.mapping = mapping
-
     def __call__(self, x, y, lr, model, loss):
         return self.cpgd(x, y, lr, model, loss)
 

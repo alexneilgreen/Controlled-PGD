@@ -1,5 +1,0 @@
-Model Architecture,Dataset,Max Epochs,Epochs Completed,Learning Rate,Batch Size,Training Accuracy,Test Accuracy,Early Stop Triggered
-ResNet18,CIFAR100,15,15,0.0001,256,99.98,45.46,No
-ResNet18,CIFAR100,15,15,0.001,256,99.98,60.55,No
-ResNet18,CIFAR100,15,15,0.01,256,82.36,51.35,No
-ResNet18,CIFAR100,15,15,0.001,128,99.98,61.55,No

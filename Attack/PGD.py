@@ -41,12 +41,11 @@ class PGD:
             model.zero_grad()
             gradient.backward()
             with no_grad():
-                unproj_step = step - lr * step.grad
+                unproj_step = step - lr * gradient
                 step = self.projection(unproj_step)
                 if norm(step - last_step) < self.tolerance:
                     break
                 last_step = step.detach()
-                step = step.detach().requires_grad_(True)
 
         return step
 

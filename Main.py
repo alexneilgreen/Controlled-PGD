@@ -9,6 +9,8 @@ from Architecture.ViT import ViT
 from Attack.Classes import UntargetedAttack, TargetedAttack
 from Data_Loaders.Data_Loader import get_dataloader, get_available_datasets
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 def get_num_classes(dataset_name):
     """Get number of classes for each dataset."""
     if dataset_name.lower() == 'cifar100':
@@ -28,10 +30,9 @@ def get_image_size_for_model(model_name, dataset_name):
 
 def train_models_mode(args):
     """Handle training models mode."""
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
     
-    os.makedirs('./Models', exist_ok=True)
+    os.makedirs('./Output/Models', exist_ok=True)
     
     if args.model == 'all':
         models_to_train = ['resnet', 'vit']
@@ -88,7 +89,7 @@ def train_models_mode(args):
 
 def get_available_models():
     """Get list of available trained models."""
-    models_dir = './Models'
+    models_dir = './Output/Models'
     if not os.path.exists(models_dir):
         return []
     
@@ -118,7 +119,6 @@ def get_class_mapping(num_classes):
 
 def attack_models_mode(args):
     """Handle attacking models mode."""
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
     
     available_models = get_available_models()
@@ -192,11 +192,11 @@ def attack_models_mode(args):
     loss_fn = model.getLoss()
     
     # Create Results directory
-    os.makedirs('./Results', exist_ok=True)
+    os.makedirs('./Output/Results', exist_ok=True)
     
     if attack_choice == 1:
         print("\nExecuting PGD (Untargeted) Attack...")
-        save_path = f"./Results/{model_name}_{dataset_name}_pgd.txt"
+        save_path = f"./Output/Results/{model_name}_{dataset_name}_pgd.txt"
         attack = UntargetedAttack(
             model=model,
             loss=loss_fn,
@@ -213,7 +213,7 @@ def attack_models_mode(args):
         mapping = get_class_mapping(num_classes)
         print(f"\nClass Mapping: {mapping}")
         
-        save_path = f"./Results/{model_name}_{dataset_name}_cpgd.txt"
+        save_path = f"./Output/Results/{model_name}_{dataset_name}_cpgd.txt"
         attack = TargetedAttack(
             model=model,
             loss=loss_fn,
