@@ -1,7 +1,13 @@
+# Core Deep Learning Framework
 torch>=2.0.0
 torchvision>=0.15.0
+
+# HuggingFace for ViT
 transformers>=4.30.0
-accelerate>=0.26.0
 evaluate>=0.4.0
+datasets>=2.12.0
+
+# Data Processing
+accelerate>=0.26.0
 numpy>=1.24.0
 pillow>=9.5.0
