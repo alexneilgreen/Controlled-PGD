@@ -131,7 +131,11 @@ class ViT():
         return file_path.is_dir()
 
     def load(self):
-        self.model = AutoModelForImageClassification.from_pretrained(self.outpath)
+        # Load from the saved directory - this will load your trained model
+        self.model = AutoModelForImageClassification.from_pretrained(
+            self.outpath,
+            local_files_only=True  # Don't try to download
+        )
         self.model.eval()
 
     def getLoss(self):
