@@ -222,6 +222,23 @@ def get_available_datasets() -> List[str]:
     """Return list of available datasets."""
     return ['mnist', 'cifar10', 'cifar100', 'stl10']
 
+def get_num_classes(dataset_name):
+    """Get number of classes for each dataset."""
+    if dataset_name.lower() == 'cifar100':
+        return 100
+    else:  # mnist, cifar10, stl10
+        return 10
+
+def get_image_size_for_model(model_name, dataset_name):
+    """Get appropriate image size based on model architecture."""
+    if model_name.lower() == 'vit':
+        return 224  # ViT uses 224x224
+    else:  # ResNet
+        if dataset_name.lower() in ['mnist', 'cifar10', 'cifar100']:
+            return 32
+        else:  # stl10
+            return 96
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Test data loader')
