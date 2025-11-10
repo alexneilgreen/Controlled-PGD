@@ -12,7 +12,7 @@ class VLM():
     def __init__(self, data_type: str, num_classes: int, labels:str):
         self.processor = AutoProcessor.from_pretrained("HuggingFaceTB/SmolVLM2-256M-Video-Instruct")
         self.model = AutoModelForImageTextToText.from_pretrained(
-            "HuggingFaceTB/SmolVLM2-256M-Video-Instruct",
+            "HuggingFaceTB/SmolVLM-Instruct",
             dtype=torch.bfloat16,
             device_map="auto"
         )
