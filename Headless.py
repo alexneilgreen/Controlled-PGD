@@ -4,8 +4,9 @@ import torch
 import csv
 from Architecture.ResNet import ResNetAlt
 from Architecture.ViT import ViT
+from Architecture.VLM import VLM
 from Attack.Classes import UntargetedAttack, TargetedAttack
-from Data_Loaders.Data_Loader import get_dataloader, get_num_classes, get_image_size_for_model
+from Data_Loaders.Data_Loader import get_dataloader, get_num_classes, get_image_size_for_model, get_dataset_labels
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -20,7 +21,7 @@ def parse_class_map(path):
 def main():
     parser = argparse.ArgumentParser(description='Controlled PGD Project')
     parser.add_argument('--train', type=bool, action='store_true')
-    parser.add_argument('--model', type=str, choices=['resnet', 'vit'], default='resnet',
+    parser.add_argument('--model', type=str, choices=['resnet', 'vit', 'vlm'], default='resnet',
                        help='Model architecture to train')
     parser.add_argument('--dataset', type=str, choices=['mnist', 'cifar10', 'cifar100', 'stl10'], 
                        default='mnist', help='Dataset to use')
@@ -49,6 +50,8 @@ def main():
         model = ResNetAlt(args.dataset, num_classes)
     elif args.model == 'vit':
         model = ViT(args.dataset, num_classes)
+    elif args.model == 'vlm':
+        model = VLM(args.dataset, get_dataset_labels(args.dataset))
     
     if args.train:
         os.makedirs('./Output/Models', exist_ok=True)
