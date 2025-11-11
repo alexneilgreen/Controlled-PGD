@@ -7,26 +7,9 @@ from torch.utils.data import DataLoader
 from Architecture.ResNet import ResNetAlt
 from Architecture.ViT import ViT
 from Attack.Classes import UntargetedAttack, TargetedAttack
-from Data_Loaders.Data_Loader import get_dataloader, get_available_datasets
+from Data_Loaders.Data_Loader import get_dataloader, get_available_datasets, get_num_classes, get_image_size_for_model
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-def get_num_classes(dataset_name):
-    """Get number of classes for each dataset."""
-    if dataset_name.lower() == 'cifar100':
-        return 100
-    else:  # mnist, cifar10, stl10
-        return 10
-
-def get_image_size_for_model(model_name, dataset_name):
-    """Get appropriate image size based on model architecture."""
-    if model_name.lower() == 'vit':
-        return 224  # ViT uses 224x224
-    else:  # ResNet
-        if dataset_name.lower() in ['mnist', 'cifar10', 'cifar100']:
-            return 32
-        else:  # stl10
-            return 96
 
 def train_models_mode(args):
     """Handle training models mode."""
