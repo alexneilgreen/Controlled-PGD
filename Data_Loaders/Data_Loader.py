@@ -4,6 +4,7 @@ from torch.utils.data import Dataset, DataLoader, Subset
 from torchvision import transforms
 import os
 import argparse
+import csv
 from torch import randperm
 from typing import List, Optional
 
@@ -231,13 +232,25 @@ def get_num_classes(dataset_name):
 
 def get_image_size_for_model(model_name, dataset_name):
     """Get appropriate image size based on model architecture."""
-    if model_name.lower() == 'vit':
+    if model_name.lower() == 'vit' or model_name.lower() == 'vlm':
         return 224  # ViT uses 224x224
     else:  # ResNet
         if dataset_name.lower() in ['mnist', 'cifar10', 'cifar100']:
             return 32
         else:  # stl10
             return 96
+        
+def get_dataset_labels(dataset_name):
+    current_file_directory = os.path.dirname(os.path.abspath(__file__))
+    mapping = {}
+    file = current_file_directory.join(f"{dataset_name}.csv")
+    with open(file, 'r') as csvfile:
+        csv_reader = csv.reader(csvfile)
+        for row in csv_reader:
+            mapping[int(row[0])] = str(row[1])
+    return mapping
+
+
 
 
 if __name__ == "__main__":
