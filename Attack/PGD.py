@@ -33,16 +33,21 @@ class PGD:
     def pgd(self, x, y, lr, model, loss):
         step = x.clone().detach().requires_grad_(True)
         last_step = x.detach()
+
         for _ in range(self.iterations):
             # calculate predicted labels
             pred = model(step)
+
             gradient = loss(pred, y)
+
             # calculate the output of the model
             model.zero_grad()
             gradient.backward()
+
             with no_grad():
                 unproj_step = step - lr * gradient
                 step = self.projection(unproj_step)
+                
                 if norm(step - last_step) < self.tolerance:
                     break
                 last_step = step.detach()

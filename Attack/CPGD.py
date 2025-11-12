@@ -1,3 +1,4 @@
+import torch
 from torch import no_grad, zeros
 from torch.linalg import norm
 
@@ -35,6 +36,7 @@ class CPGD:
         @param loss - callable loss, use loss of model being attacked
         @return the adversarial images
         """
+        x_orig = x.clone().detach()  # Store original images
         step = x.clone().detach().requires_grad_(True)
         last_step = x.detach()
         
@@ -47,7 +49,7 @@ class CPGD:
             
             # Use negative loss to maximize probability of target class
             # This makes the model think the image belongs to the target class
-            gradient = -loss(pred, target_labels)
+            gradient = loss(pred, target_labels)
             
             # calculate the gradient
             model.zero_grad()
@@ -56,12 +58,11 @@ class CPGD:
             with no_grad():
                 # Move in direction that increases target class probability
                 unproj_step = step - lr * step.grad
-                step = self.projection(unproj_step)
+                step = self.projection(unproj_step, x_orig)
                 
                 if norm(step - last_step) < self.tolerance:
                     break
                 last_step = step.detach()
-                step = step.detach().requires_grad_(True)
 
         return step
 
@@ -77,10 +78,24 @@ class CPGD:
             target_labels[i] = self.mapping[label.item()]
         return target_labels
 
-    def projection(self, a):
+    def projection(self, x_adv, x_orig):
         """
-        This is the projection step of the CPGD implementation
+        Project adversarial example to be within epsilon ball of original image.
+        Uses L-infinity norm constraint.
         
-        @todo actually implement this, need to determine what a reasonable projection is
+        @param x_adv - the adversarial images
+        @param x_orig - the original clean images
+        @return projected adversarial images
         """
-        return a.clone().detach().requires_grad_(True)
+        import torch
+        # Compute perturbation
+        perturbation = x_adv - x_orig
+        
+        # Clip perturbation to [-epsilon, epsilon]
+        perturbation = torch.clamp(perturbation, -self.epsilon, self.epsilon)
+        
+        # Add perturbation back to original and clip to valid image range [0, 1]
+        x_projected = x_orig + perturbation
+        x_projected = torch.clamp(x_projected, 0, 1)
+        
+        return x_projected.clone().detach().requires_grad_(True)
