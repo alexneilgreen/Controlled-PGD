@@ -20,17 +20,18 @@ class PGD:
     def __call__(self, x, y, lr, model, loss):
         return self.pgd(x, y, lr, model, loss)
 
-    '''
-    Base PGD implementation, executes an untargeted attack on input and returns
-
-    @param x - the input images
-    @param y - the true labels
-    @param lr - the learning rate, hyper param of attack
-    @param model - the model being attacked
-    @param loss - callable loss, use loss of model being attacked
-    @return the adversarial images
-    '''
     def pgd(self, x, y, lr, model, loss):
+        '''
+        Base PGD implementation, executes an untargeted attack on input and returns
+
+        @param x - the input images
+        @param y - the true labels
+        @param lr - the learning rate, hyper param of attack
+        @param model - the model being attacked
+        @param loss - callable loss, use loss of model being attacked
+        @return the adversarial images
+        '''
+        x_orig = x.clone().detach()  # Store original images
         step = x.clone().detach().requires_grad_(True)
         last_step = x.detach()
 
@@ -45,8 +46,8 @@ class PGD:
             gradient.backward()
 
             with no_grad():
-                unproj_step = step - lr * gradient
-                step = self.projection(unproj_step)
+                unproj_step = step + lr * step.grad  # Maximize loss (untargeted)
+                step = self.projection(unproj_step, x_orig)
                 
                 if norm(step - last_step) < self.tolerance:
                     break
@@ -54,10 +55,24 @@ class PGD:
 
         return step
 
-    '''
-    This is the projection step of the PGD implementation
-    
-    @todo actually implement this, need to determine what a reasonable projection is
-    '''
-    def projection(self, a):
-        return a.clone().detach().requires_grad_(True)
+    def projection(self, x_adv, x_orig):
+        """
+        Project adversarial example to be within epsilon ball of original image.
+        Uses L-infinity norm constraint.
+        
+        @param x_adv - the adversarial images
+        @param x_orig - the original clean images
+        @return projected adversarial images
+        """
+        import torch
+        # Compute perturbation
+        perturbation = x_adv - x_orig
+        
+        # Clip perturbation to [-epsilon, epsilon]
+        perturbation = torch.clamp(perturbation, -self.epsilon, self.epsilon)
+        
+        # Add perturbation back to original and clip to valid image range [0, 1]
+        x_projected = x_orig + perturbation
+        x_projected = torch.clamp(x_projected, 0, 1)
+        
+        return x_projected.clone().detach().requires_grad_(True)

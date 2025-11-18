@@ -16,15 +16,17 @@ class SimpleAccReporter(BaseReporter):
     Tracks:
     - Global Attack Success Rate (GASR): Overall attack success
     - Individual Attack Success Rate (IASR): Per-class attack success
-    - Accuracy: Classification accuracy (1 - GASR)
+    - Accuracy: Classification accuracy (1 - GASR for untargeted, different for targeted)
     """
     
-    def __init__(self, save_path=None):
+    def __init__(self, save_path=None, is_targeted=False, attack_params=None):
         self.total_misclassified = 0
         self.total_samples = 0
         self.class_misclassified = {}
         self.class_total = {}
         self.save_path = save_path
+        self.is_targeted = is_targeted
+        self.attack_params = attack_params or {}
     
     def collect(self, results):
         """
@@ -64,12 +66,27 @@ class SimpleAccReporter(BaseReporter):
     def report(self):
         """
         Print and save the attack statistics to file.
+        Only outputs for untargeted attacks (PGD).
         """
+        # Skip reporting for targeted attacks
+        if self.is_targeted:
+            return
+        
         # Prepare the report content
         report_lines = []
         report_lines.append("\n" + "="*60)
         report_lines.append("ATTACK RESULTS")
         report_lines.append("="*60)
+    
+        # Attack Parameters
+        if self.attack_params:
+            report_lines.append("\nAttack Parameters:")
+            report_lines.append("-"*60)
+            report_lines.append(f"Iterations: {self.attack_params.get('iterations', 'N/A')}")
+            report_lines.append(f"Tolerance: {self.attack_params.get('tolerance', 'N/A')}")
+            report_lines.append(f"Alpha (Step Size): {self.attack_params.get('alpha', 'N/A')}")
+            report_lines.append(f"Epsilon (Max Perturbation): {self.attack_params.get('epsilon', 'N/A')}")
+            report_lines.append("-"*60)
         
         # Global Attack Success Rate (GASR)
         gasr = (self.total_misclassified / self.total_samples) * 100 if self.total_samples > 0 else 0
@@ -122,7 +139,9 @@ class TargetedSuccessReporter:
         self.num_classes = num_classes
         self.mapping = mapping
         self.save_path = save_path
-        self.targeted_success = {}  # source_class -> {target: count, total: count}
+        self.targeted_success = {}  # source_class -> {achieved: count, total: count}
+        self.class_misclassified = {}  # Track misclassifications per class
+        self.class_misclassified = {}
         
         # Initialize tracking for each source class
         for source in range(num_classes):
@@ -130,6 +149,7 @@ class TargetedSuccessReporter:
                 'achieved_target': 0,
                 'total': 0
             }
+            self.class_misclassified[source] = 0
     
     def collect(self, true_labels, pred_labels, target_labels):
         """
@@ -147,22 +167,67 @@ class TargetedSuccessReporter:
             
             self.targeted_success[true_label]['total'] += 1
             
+            # Track misclassifications (pred != true)
+            if pred_label != true_label:
+                self.class_misclassified[true_label] += 1
+            
             # Check if attack achieved the target
             if pred_label == target_label:
                 self.targeted_success[true_label]['achieved_target'] += 1
     
     def report(self):
         """Print and save targeted attack statistics."""
+        # Calculate overall metrics
+        total_targeted_success = 0
+        total_misclassified = 0
+        total_samples = 0
+        
+        for source_class in self.targeted_success:
+            stats = self.targeted_success[source_class]
+            total_targeted_success += stats['achieved_target']
+            total_misclassified += self.class_misclassified[source_class]
+            total_samples += stats['total']
+        
+        overall_gasr = (total_targeted_success / total_samples) * 100 if total_samples > 0 else 0
+        overall_accuracy = (1 - total_misclassified / total_samples) * 100 if total_samples > 0 else 0
+        
         # Prepare the report content
         report_lines = []
         report_lines.append("\n" + "="*60)
-        report_lines.append("TARGETED ATTACK SPECIFICS (CPGD)")
+        report_lines.append("TARGETED ATTACK RESULTS (CPGD)")
         report_lines.append("="*60)
+    
+        # Attack Parameters
+        if self.attack_params:
+            report_lines.append("\nAttack Parameters:")
+            report_lines.append("-"*60)
+            report_lines.append(f"Iterations: {self.attack_params.get('iterations', 'N/A')}")
+            report_lines.append(f"Tolerance: {self.attack_params.get('tolerance', 'N/A')}")
+            report_lines.append(f"Alpha (Step Size): {self.attack_params.get('alpha', 'N/A')}")
+            report_lines.append(f"Epsilon (Max Perturbation): {self.attack_params.get('epsilon', 'N/A')}")
+            report_lines.append("-"*60)
         
-        total_targeted_success = 0
-        total_samples = 0
+        # Global metrics
+        report_lines.append(f"Global Attack Success Rate (GASR): {overall_gasr:.2f}%")
+        report_lines.append(f"Accuracy: {overall_accuracy:.2f}%")
         
-        report_lines.append("\nTargeted Success Rate by Class:")
+        # Individual Class Accuracy (misclassification stats)
+        report_lines.append("\n" + "-"*60)
+        report_lines.append("Individual Class Accuracy:")
+        report_lines.append("-"*60)
+        
+        for source_class in sorted(self.targeted_success.keys()):
+            stats = self.targeted_success[source_class]
+            total = stats['total']
+            misclassified = self.class_misclassified[source_class]
+            misclassification_rate = (misclassified / total) * 100 if total > 0 else 0
+            report_lines.append(f"Class {source_class}: {misclassification_rate:.2f}% ({misclassified}/{total} misclassified)")
+        
+        report_lines.append("-"*60)
+        
+        # Individual Attack Success Rate by class
+        report_lines.append("\n" + "-"*60)
+        report_lines.append("Individual Attack Success Rate (IASR) by Class:")
         report_lines.append("-"*60)
         report_lines.append(f"{'Class':<8} {'Target':<8} {'Success Rate':<15} {'Samples'}")
         report_lines.append("-"*60)
@@ -175,17 +240,7 @@ class TargetedSuccessReporter:
             if total > 0:
                 success_rate = (achieved / total) * 100
                 target_class = self.mapping[source_class]
-                report_lines.append(f"{source_class:<8} {target_class:<8} {success_rate:>6.2f}%         {achieved}/{total}")
-                
-                total_targeted_success += achieved
-                total_samples += total
-        
-        report_lines.append("-"*60)
-        
-        if total_samples > 0:
-            overall_targeted_success = (total_targeted_success / total_samples) * 100
-            report_lines.append(f"\nOverall Targeted Success Rate: {overall_targeted_success:.2f}%")
-            report_lines.append(f"(Percentage of samples that were misclassified to the intended target)")
+                report_lines.append(f"{source_class:<8} {target_class:<8} {success_rate:>6.2f}%         {achieved}/{total} correctly targeted")
         
         report_lines.append("="*60 + "\n")
         
@@ -196,7 +251,6 @@ class TargetedSuccessReporter:
         # Save to file if save_path is provided
         if self.save_path:
             os.makedirs(os.path.dirname(self.save_path), exist_ok=True)
-            # Append to existing file
-            with open(self.save_path, 'a') as f:
+            with open(self.save_path, 'w') as f:
                 f.write('\n'.join(report_lines))
-            print(f"Targeted results appended to: {self.save_path}")
+            print(f"Results saved to: {self.save_path}")

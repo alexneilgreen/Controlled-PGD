@@ -3,6 +3,7 @@ import os
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+import csv
 
 from Architecture.ResNet import ResNetAlt
 from Architecture.ViT import ViT
@@ -11,6 +12,23 @@ from Data_Loaders.Data_Loader import get_dataloader, get_available_datasets
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+def parse_class_map(path):
+    """Parse class mapping from CSV file."""
+    mapping = {}
+    try:
+        with open(path, 'r') as csvfile:
+            csv_reader = csv.reader(csvfile)
+            for row in csv_reader:
+                if len(row) >= 2:
+                    mapping[int(row[0])] = int(row[1])
+        return mapping
+    except FileNotFoundError:
+        print(f"Error: Mapping file '{path}' not found.")
+        return None
+    except ValueError:
+        print(f"Error: Invalid mapping format in '{path}'. Expected integer values.")
+        return None
+    
 def get_num_classes(dataset_name):
     """Get number of classes for each dataset."""
     if dataset_name.lower() == 'cifar100':
@@ -117,45 +135,52 @@ def get_class_mapping(num_classes):
                 print("Invalid input. Please enter a number.")
     return mapping
 
-def attack_models_mode(args):
-    """Handle attacking models mode."""
-    print(f"Using device: {device}")
-    
-    available_models = get_available_models()
-    
-    if not available_models:
-        print("No trained models found. Please train models first.")
-        return
-    
-    print("\nAvailable trained models:")
-    for idx, model_file in enumerate(available_models):
-        print(f"{idx+1}. {model_file}")
-    
-    while True:
-        try:
-            selection = int(input("\nSelect model number: ")) - 1
-            if 0 <= selection < len(available_models):
-                selected_model_file = available_models[selection]
-                break
-            else:
-                print(f"Invalid selection. Please choose 1-{len(available_models)}")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
-    
+def attack_single_model(model_file, args, attack_type, mapping_folder=None):
+    """Attack a single model."""
     # Parse model name and dataset from filename
-    model_parts = selected_model_file.replace('.pth', '').split('_')
+    model_parts = model_file.replace('.pth', '').split('_')
     if len(model_parts) >= 2:
         model_name = model_parts[0].lower()
         dataset_name = model_parts[1].lower()
     else:
         # Handle ViT directory format
-        model_name = 'vit' if 'ViT' in selected_model_file else 'resnet'
-        dataset_name = selected_model_file.split('_')[1].lower()
+        model_name = 'vit' if 'ViT' in model_file else 'resnet'
+        dataset_name = model_file.split('_')[1].lower()
     
-    print(f"\nSelected: {model_name.upper()} trained on {dataset_name.upper()}")
+    print(f"\n{'='*60}")
+    print(f"Attacking: {model_name.upper()} trained on {dataset_name.upper()}")
+    print(f"{'='*60}")
     
     num_classes = get_num_classes(dataset_name)
     img_size = get_image_size_for_model(model_name, dataset_name)
+    
+    # Load appropriate mapping if CPGD
+    mapping = None
+    if attack_type == 'CPGD':
+        if mapping_folder is None:
+            print("Error: Mapping folder required for CPGD attacks.")
+            print("Skipping this model...")
+            return
+        
+        # Select correct mapping file based on num_classes
+        if num_classes == 10:
+            mapping_file = os.path.join(mapping_folder, '10class.csv')
+        elif num_classes == 100:
+            mapping_file = os.path.join(mapping_folder, '100class.csv')
+        else:
+            print(f"Error: No mapping available for {num_classes} classes.")
+            print("Skipping this model...")
+            return
+        
+        mapping = parse_class_map(mapping_file)
+        if mapping is None:
+            print("Skipping this model...")
+            return
+        
+        if len(mapping) != num_classes:
+            print(f"Error: Mapping has {len(mapping)} classes but dataset has {num_classes} classes.")
+            print("Skipping this model...")
+            return
     
     if model_name == 'resnet':
         model = ResNetAlt(dataset_name, num_classes)
@@ -175,26 +200,12 @@ def attack_models_mode(args):
         target_size=img_size
     )
     
-    print("\nSelect attack type:")
-    print("1. PGD (Untargeted)")
-    print("2. CPGD (Targeted)")
-    
-    while True:
-        try:
-            attack_choice = int(input("\nSelect attack (1 or 2): "))
-            if attack_choice in [1, 2]:
-                break
-            else:
-                print("Invalid selection. Please choose 1 or 2")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
-    
     loss_fn = model.getLoss()
     
     # Create Results directory
     os.makedirs('./Output/Results', exist_ok=True)
     
-    if attack_choice == 1:
+    if attack_type == 'PGD':
         print("\nExecuting PGD (Untargeted) Attack...")
         save_path = f"./Output/Results/{model_name}_{dataset_name}_pgd.txt"
         attack = UntargetedAttack(
@@ -208,10 +219,10 @@ def attack_models_mode(args):
             alpha=args.alpha
         )
         attack.execute_attack()
-    else:
+    else:  # CPGD
         print("\nExecuting CPGD (Targeted) Attack...")
-        mapping = get_class_mapping(num_classes)
-        print(f"\nClass Mapping: {mapping}")
+        print(f"Using mapping: {mapping_file}")
+        print(f"Class Mapping: {mapping}")
         
         save_path = f"./Output/Results/{model_name}_{dataset_name}_cpgd.txt"
         attack = TargetedAttack(
@@ -227,6 +238,146 @@ def attack_models_mode(args):
             alpha=args.alpha
         )
         attack.execute_attack()
+
+def attack_models_mode(args):
+    """Handle attacking models mode."""
+    print(f"Using device: {device}")
+    
+    available_models = get_available_models()
+    
+    if not available_models:
+        print("No trained models found. Please train models first.")
+        return
+    
+    # Headless mode - attack all models
+    if not args.attack_menu:
+        print("\nHeadless Attack Mode")
+        print(f"Attack Type: {args.type}")
+        
+        if args.type == 'CPGD':
+            if not args.map:
+                print("Error: --map argument is required for CPGD attacks in headless mode.")
+                return
+            
+            if not os.path.isdir(args.map):
+                print(f"Error: Mapping folder '{args.map}' not found.")
+                return
+            
+            print(f"Using mapping folder: {args.map}")
+        
+        print(f"\nFound {len(available_models)} trained models")
+        print("Attacking all models...")
+        
+        for model_file in available_models:
+            attack_single_model(model_file, args, args.type, args.map if args.type == 'CPGD' else None)
+        
+        print("\n" + "="*60)
+        print("All attacks completed!")
+        print("="*60)
+        return
+    
+    # Interactive menu mode
+    else: 
+        print("\nAvailable trained models:")
+        for idx, model_file in enumerate(available_models):
+            print(f"{idx+1}. {model_file}")
+        
+        while True:
+            try:
+                selection = int(input("\nSelect model number: ")) - 1
+                if 0 <= selection < len(available_models):
+                    selected_model_file = available_models[selection]
+                    break
+                else:
+                    print(f"Invalid selection. Please choose 1-{len(available_models)}")
+            except ValueError:
+                print("Invalid input. Please enter a number.")
+        
+        # Parse model name and dataset from filename
+        model_parts = selected_model_file.replace('.pth', '').split('_')
+        if len(model_parts) >= 2:
+            model_name = model_parts[0].lower()
+            dataset_name = model_parts[1].lower()
+        else:
+            # Handle ViT directory format
+            model_name = 'vit' if 'ViT' in selected_model_file else 'resnet'
+            dataset_name = selected_model_file.split('_')[1].lower()
+        
+        print(f"\nSelected: {model_name.upper()} trained on {dataset_name.upper()}")
+        
+        num_classes = get_num_classes(dataset_name)
+        img_size = get_image_size_for_model(model_name, dataset_name)
+        
+        if model_name == 'resnet':
+            model = ResNetAlt(dataset_name, num_classes)
+        elif model_name == 'vit':
+            model = ViT(dataset_name, num_classes)
+        
+        model.load()
+        model = model.to(device=device)
+        print("Model loaded successfully!")
+        
+        test_loader = get_dataloader(
+            dataset_name=dataset_name,
+            split='test',
+            batch_size=args.batch_size,
+            shuffle=False,
+            num_workers=args.num_workers,
+            target_size=img_size
+        )
+        
+        print("\nSelect attack type:")
+        print("1. PGD (Untargeted)")
+        print("2. CPGD (Targeted)")
+        
+        while True:
+            try:
+                attack_choice = int(input("\nSelect attack (1 or 2): "))
+                if attack_choice in [1, 2]:
+                    break
+                else:
+                    print("Invalid selection. Please choose 1 or 2")
+            except ValueError:
+                print("Invalid input. Please enter a number.")
+        
+        loss_fn = model.getLoss()
+        
+        # Create Results directory
+        os.makedirs('./Output/Results', exist_ok=True)
+        
+        if attack_choice == 1:
+            print("\nExecuting PGD (Untargeted) Attack...")
+            save_path = f"./Output/Results/{model_name}_{dataset_name}_pgd.txt"
+            attack = UntargetedAttack(
+                model=model,
+                loss=loss_fn,
+                dataloader=test_loader,
+                save_path=save_path,
+                iterations=args.iterations,
+                tolerance=args.tolerance,
+                epsilon=args.epsilon,
+                alpha=args.alpha
+            )
+            attack.execute_attack()
+        else:
+            print("\nExecuting CPGD (Targeted) Attack...")
+            mapping = get_class_mapping(num_classes)
+            print(f"\nClass Mapping: {mapping}")
+            
+            save_path = f"./Output/Results/{model_name}_{dataset_name}_cpgd.txt"
+            attack = TargetedAttack(
+                model=model,
+                loss=loss_fn,
+                dataloader=test_loader,
+                num_classes=num_classes,
+                mapping=mapping,
+                save_path=save_path,
+                iterations=args.iterations,
+                tolerance=args.tolerance,
+                epsilon=args.epsilon,
+                alpha=args.alpha
+            )
+            attack.execute_attack()
 
 def main():
     parser = argparse.ArgumentParser(description='Controlled PGD Project')
@@ -249,6 +400,13 @@ def main():
     parser.add_argument('--tolerance', type=float, default=0.000001, help='Attack convergence tolerance')
     parser.add_argument('--alpha', type=float, default=0.01, help='Attack step size')
     parser.add_argument('--epsilon', type=float, default=0.3, help='Maximum perturbation (L-infinity norm)')
+
+    # Headless arguments
+    parser.add_argument('--attack_menu', action='store_true', help='Use interactive attack menu')
+    parser.add_argument('--type', type=str, choices=['PGD', 'CPGD'], default='PGD', 
+                       help='Type of attack (for headless mode)')
+    parser.add_argument('--map', type=str, default='Attack/Mapping', 
+                       help='Path to folder containing CPGD class mapping CSV files (for headless mode)')
     
     args = parser.parse_args()
     

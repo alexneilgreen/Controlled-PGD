@@ -17,6 +17,7 @@ class AttackResults:
     true_labels: Optional[torch.Tensor] = None
     pred_labels: Optional[torch.Tensor] = None
 
+
 class UntargetedAttack:
     def __init__(self, model, loss, dataloader, save_path=None, **kwargs):
         self.model = model
@@ -33,9 +34,16 @@ class UntargetedAttack:
         if 'lr' in kwargs:
             alpha = kwargs['lr']
 
+        self.attack_params = {
+            'iterations': iterations,
+            'tolerance': tolerance,
+            'alpha': alpha,
+            'epsilon': epsilon
+        }
+
         self.pgd = PGD(iterations=iterations, tolerance=tolerance, 
                       epsilon=epsilon, alpha=alpha)
-        self.reporter = SimpleAccReporter(save_path=save_path)
+        self.reporter = SimpleAccReporter(save_path=save_path, attack_params=self.attack_params)
 
     def execute_attack(self):
         print("\nExecuting PGD Attack...")
@@ -88,13 +96,20 @@ class TargetedAttack:
         if 'lr' in kwargs:
             alpha = kwargs['lr']
 
+        self.attack_params = {
+            'iterations': iterations,
+            'tolerance': tolerance,
+            'alpha': alpha,
+            'epsilon': epsilon
+        }
+
         # Set mapping if provided
         if mapping is not None:
             self.cpgd = CPGD(iterations=iterations, tolerance=tolerance, 
                         num_classes=num_classes, epsilon=epsilon, alpha=alpha, mapping=mapping)
 
-            self.reporter = SimpleAccReporter(save_path=save_path)
-            self.targeted_reporter = TargetedSuccessReporter(num_classes, mapping if mapping else self.cpgd.mapping, save_path=save_path)
+            self.reporter = SimpleAccReporter(save_path=save_path, is_targeted=True, attack_params=self.attack_params)
+            self.targeted_reporter = TargetedSuccessReporter(num_classes, mapping if mapping else self.cpgd.mapping, save_path=save_path, attack_params=self.attack_params)
         else:
             print("\n No mapping for CPGD attack. Please restart with mapping.")
 
