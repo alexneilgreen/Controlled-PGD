@@ -135,13 +135,13 @@ class TargetedSuccessReporter:
     Tracks how well the attack achieved the targeted misclassifications.
     """
     
-    def __init__(self, num_classes, mapping, save_path=None):
+    def __init__(self, num_classes, mapping, save_path=None, attack_params=None):
         self.num_classes = num_classes
         self.mapping = mapping
         self.save_path = save_path
         self.targeted_success = {}  # source_class -> {achieved: count, total: count}
         self.class_misclassified = {}  # Track misclassifications per class
-        self.class_misclassified = {}
+        self.attack_params = attack_params or {}
         
         # Initialize tracking for each source class
         for source in range(num_classes):
