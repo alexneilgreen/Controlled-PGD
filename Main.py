@@ -5,6 +5,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 import csv
 
+# from Architecture.ResNet import ResNet18
 from Architecture.ResNet import ResNetAlt
 from Architecture.ViT import ViT
 from Attack.Classes import UntargetedAttack, TargetedAttack

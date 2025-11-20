@@ -22,16 +22,16 @@ class CPGD:
         self.num_classes = num_classes
         self.mapping = mapping
 
-    def __call__(self, x, y, lr, model, loss):
-        return self.cpgd(x, y, lr, model, loss)
+    def __call__(self, x, y, alpha, model, loss):
+        return self.cpgd(x, y, alpha, model, loss)
 
-    def cpgd(self, x, y, lr, model, loss):
+    def cpgd(self, x, y, alpha, model, loss):
         """
         Controlled PGD implementation, executes a targeted attack based on mapping matrix
 
         @param x - the input images
         @param y - the true labels
-        @param lr - the learning rate, hyper param of attack
+        @param alpha - attack step size, hyper param of attack
         @param model - the model being attacked
         @param loss - callable loss, use loss of model being attacked
         @return the adversarial images
@@ -57,7 +57,7 @@ class CPGD:
             
             with no_grad():
                 # Move in direction that increases target class probability
-                unproj_step = step - lr * step.grad
+                unproj_step = step - alpha * step.grad
                 step = self.projection(unproj_step, x_orig)
                 
                 if norm(step - last_step) < self.tolerance:

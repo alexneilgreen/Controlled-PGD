@@ -17,16 +17,16 @@ class PGD:
         self.epsilon = epsilon
         self.alpha = alpha
 
-    def __call__(self, x, y, lr, model, loss):
-        return self.pgd(x, y, lr, model, loss)
+    def __call__(self, x, y, alpha, model, loss):
+        return self.pgd(x, y, alpha, model, loss)
 
-    def pgd(self, x, y, lr, model, loss):
+    def pgd(self, x, y, alpha, model, loss):
         '''
         Base PGD implementation, executes an untargeted attack on input and returns
 
         @param x - the input images
         @param y - the true labels
-        @param lr - the learning rate, hyper param of attack
+        @param alpha - attack step size, hyper param of attack
         @param model - the model being attacked
         @param loss - callable loss, use loss of model being attacked
         @return the adversarial images
@@ -46,7 +46,7 @@ class PGD:
             gradient.backward()
 
             with no_grad():
-                unproj_step = step + lr * step.grad  # Maximize loss (untargeted)
+                unproj_step = step + alpha * step.grad  # Maximize loss (untargeted)
                 step = self.projection(unproj_step, x_orig)
                 
                 if norm(step - last_step) < self.tolerance:
