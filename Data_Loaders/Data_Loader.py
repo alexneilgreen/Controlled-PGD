@@ -41,18 +41,16 @@ class AdaptiveDataset(Dataset):
         """Load the specified dataset."""
         # Determine target size - use original sizes if not specified
         if self.target_size is None:
-            if self.dataset_name in ['mnist', 'cifar10', 'cifar100']:
+            if self.dataset_name in ['mnist', 'kmnist', 'cifar10', 'cifar100', 'svhn']:
                 size = 32
-            elif self.dataset_name == 'stl10':
+            else: # stl10
                 size = 96
-            else:
-                size = 224
         else:
             size = self.target_size
         
         # Base transforms
-        if self.dataset_name == 'mnist':
-            # MNIST: Convert grayscale to RGB
+        if self.dataset_name in ['mnist', 'kmnist']:
+            # MNIST/KMNIST: Convert grayscale to RGB
             base_transform = transforms.Compose([
                 transforms.Grayscale(num_output_channels=3),
                 transforms.Resize(size),
@@ -78,6 +76,21 @@ class AdaptiveDataset(Dataset):
                 )
             else:  # test
                 return torchvision.datasets.MNIST(
+                    root=self.root, train=False, download=download_needed,
+                    transform=base_transform
+                )
+        
+        elif self.dataset_name == 'kmnist':
+            kmnist_path = os.path.join(self.root, 'KMNIST')
+            download_needed = not os.path.exists(kmnist_path)
+            
+            if self.split == 'train':
+                return torchvision.datasets.KMNIST(
+                    root=self.root, train=True, download=download_needed,
+                    transform=base_transform
+                )
+            else:  # test
+                return torchvision.datasets.KMNIST(
                     root=self.root, train=False, download=download_needed,
                     transform=base_transform
                 )
@@ -132,29 +145,6 @@ class AdaptiveDataset(Dataset):
                 root=self.root, split=split_map[self.split], 
                 download=download_needed, transform=base_transform
             )
-        
-        elif self.dataset_name == 'caltech256':
-            caltech256_path = os.path.join(self.root, '256_ObjectCategories')
-            download_needed = not os.path.exists(caltech256_path)
-            
-            # Caltech256 doesn't have predefined splits, so we'll use the whole dataset
-            # and manually split if needed
-            dataset = torchvision.datasets.Caltech256(
-                root=self.root, download=download_needed,
-                transform=base_transform
-            )
-            
-            # Create train/test split (80/20)
-            if self.split == 'train':
-                # Use first 80% for training
-                split_idx = int(0.8 * len(dataset))
-                indices = list(range(split_idx))
-                return Subset(dataset, indices)
-            else:  # test or val
-                # Use last 20% for testing
-                split_idx = int(0.8 * len(dataset))
-                indices = list(range(split_idx, len(dataset)))
-                return Subset(dataset, indices)
         
         else:
             raise ValueError(f"Unknown dataset: {self.dataset_name}")
@@ -256,7 +246,7 @@ def get_random_test_slice(dataset_name: str, size=64,
 
 def get_available_datasets() -> List[str]:
     """Return list of available datasets."""
-    return ['mnist', 'cifar10', 'cifar100', 'stl10', 'svhn', 'caltech256']
+    return ['mnist', 'kmnist', 'cifar10', 'cifar100', 'stl10', 'svhn']
 
 
 if __name__ == "__main__":

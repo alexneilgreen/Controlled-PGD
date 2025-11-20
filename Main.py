@@ -34,9 +34,7 @@ def get_num_classes(dataset_name):
     """Get number of classes for each dataset."""
     if dataset_name.lower() == 'cifar100':
         return 100
-    elif dataset_name == 'caltech256':
-        return 257  # 256 object categories + 1 clutter class
-    else:  # mnist, cifar10, stl10
+    else:  # mnist, kmnist, cifar10, stl10, svhn
         return 10
 
 def get_image_size_for_model(model_name, dataset_name):
@@ -44,12 +42,10 @@ def get_image_size_for_model(model_name, dataset_name):
     if model_name.lower() == 'vit':
         return 224  # ViT uses 224x224
     else:  # ResNet
-        if dataset_name.lower() in ['mnist', 'cifar10', 'cifar100']:
+        if dataset_name.lower() in ['mnist', 'kmnist', 'cifar10', 'cifar100', 'svhn']:
             return 32
-        elif dataset_name == 'stl10':
+        else: # stl10
             return 96
-        else:  # caltech256
-            return 224
 
 def train_models_mode(args):
     """Handle training models mode."""
@@ -394,7 +390,7 @@ def main():
     # Training arguments
     parser.add_argument('--model', type=str, choices=['resnet', 'vit', 'all'], default='all',
                        help='Model architecture to train')
-    parser.add_argument('--dataset', type=str, choices=['mnist', 'cifar10', 'cifar100', 'stl10', 'svhn', 'caltech256', 'all'], 
+    parser.add_argument('--dataset', type=str, choices=['mnist', 'kmnist', 'cifar10', 'cifar100', 'stl10', 'svhn', 'all'], 
                        default='all', help='Dataset to use')
     parser.add_argument('--epochs', type=int, default=15, help='Number of training epochs')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate for training')
