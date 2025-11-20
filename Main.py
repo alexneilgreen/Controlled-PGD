@@ -34,6 +34,8 @@ def get_num_classes(dataset_name):
     """Get number of classes for each dataset."""
     if dataset_name.lower() == 'cifar100':
         return 100
+    elif dataset_name == 'caltech256':
+        return 257  # 256 object categories + 1 clutter class
     else:  # mnist, cifar10, stl10
         return 10
 
@@ -44,8 +46,10 @@ def get_image_size_for_model(model_name, dataset_name):
     else:  # ResNet
         if dataset_name.lower() in ['mnist', 'cifar10', 'cifar100']:
             return 32
-        else:  # stl10
+        elif dataset_name == 'stl10':
             return 96
+        else:  # caltech256
+            return 224
 
 def train_models_mode(args):
     """Handle training models mode."""
@@ -168,6 +172,8 @@ def attack_single_model(model_file, args, attack_type, mapping_folder=None):
             mapping_file = os.path.join(mapping_folder, '10class.csv')
         elif num_classes == 100:
             mapping_file = os.path.join(mapping_folder, '100class.csv')
+        elif num_classes == 257:
+            mapping_file = os.path.join(mapping_folder, '257class.csv')
         else:
             print(f"Error: No mapping available for {num_classes} classes.")
             print("Skipping this model...")
@@ -388,7 +394,7 @@ def main():
     # Training arguments
     parser.add_argument('--model', type=str, choices=['resnet', 'vit', 'all'], default='all',
                        help='Model architecture to train')
-    parser.add_argument('--dataset', type=str, choices=['mnist', 'cifar10', 'cifar100', 'stl10', 'all'], 
+    parser.add_argument('--dataset', type=str, choices=['mnist', 'cifar10', 'cifar100', 'stl10', 'svhn', 'caltech256', 'all'], 
                        default='all', help='Dataset to use')
     parser.add_argument('--epochs', type=int, default=15, help='Number of training epochs')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate for training')

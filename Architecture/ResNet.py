@@ -98,7 +98,7 @@ class ResNetAlt(nn.Module):
         scaler = torch.amp.GradScaler('cuda')
         
         best_acc = 0.0
-        patience = 10
+        patience = 2
         patience_counter = 0
         early_stop_triggered = False
         epochs_completed = 0

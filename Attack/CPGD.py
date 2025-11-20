@@ -87,14 +87,13 @@ class CPGD:
         @param x_orig - the original clean images
         @return projected adversarial images
         """
-        import torch
         # Compute perturbation
         perturbation = x_adv - x_orig
         
         # Clip perturbation to [-epsilon, epsilon]
         perturbation = torch.clamp(perturbation, -self.epsilon, self.epsilon)
         
-        # Add perturbation back to original and clip to valid image range [0, 1]
+        # Add perturbation back to original and clip to valid image range [1, 1]
         x_projected = x_orig + perturbation
         x_projected = torch.clamp(x_projected, 0, 1)
         
