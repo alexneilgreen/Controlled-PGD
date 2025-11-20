@@ -206,11 +206,12 @@ def attack_single_model(model_file, args, attack_type, mapping_folder=None):
     loss_fn = model.getLoss()
     
     # Create Results directory
-    os.makedirs('./Output/Results', exist_ok=True)
+    results_dir = f"./Output/Results/{args.iterations}_iterations_{args.alpha:.2f}_alpha"
+    os.makedirs(results_dir, exist_ok=True)
     
     if attack_type == 'PGD':
         print("\nExecuting PGD (Untargeted) Attack...")
-        save_path = f"./Output/Results/{model_name}_{dataset_name}_pgd.txt"
+        save_path = f"{results_dir}/{model_name}_{dataset_name}_pgd.txt"
         attack = UntargetedAttack(
             model=model,
             loss=loss_fn,
@@ -227,7 +228,7 @@ def attack_single_model(model_file, args, attack_type, mapping_folder=None):
         print(f"Using mapping: {mapping_file}")
         print(f"Class Mapping: {mapping}")
         
-        save_path = f"./Output/Results/{model_name}_{dataset_name}_cpgd.txt"
+        save_path = f"{results_dir}/{model_name}_{dataset_name}_cpgd.txt"
         attack = TargetedAttack(
             model=model,
             loss=loss_fn,
@@ -346,11 +347,12 @@ def attack_models_mode(args):
         loss_fn = model.getLoss()
         
         # Create Results directory
-        os.makedirs('./Output/Results', exist_ok=True)
+        results_dir = f"./Output/Results/{args.iterations}_iterations_{args.alpha:.2f}_alpha"
+        os.makedirs(results_dir, exist_ok=True)
         
         if attack_choice == 1:
             print("\nExecuting PGD (Untargeted) Attack...")
-            save_path = f"./Output/Results/{model_name}_{dataset_name}_pgd.txt"
+            save_path = f"{results_dir}/{model_name}_{dataset_name}_pgd.txt"
             attack = UntargetedAttack(
                 model=model,
                 loss=loss_fn,
@@ -367,7 +369,7 @@ def attack_models_mode(args):
             mapping = get_class_mapping(num_classes)
             print(f"\nClass Mapping: {mapping}")
             
-            save_path = f"./Output/Results/{model_name}_{dataset_name}_cpgd.txt"
+            save_path = f"{results_dir}/{model_name}_{dataset_name}_cpgd.txt"
             attack = TargetedAttack(
                 model=model,
                 loss=loss_fn,
