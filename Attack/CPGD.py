@@ -38,7 +38,7 @@ class CPGD:
         """
         x_orig = x.clone().detach()  # Store original images
         step = x.clone().detach().requires_grad_(True)
-        last_step = x.detach()
+        last_step = step.detach().clone()
         
         # Create target labels based on mapping
         target_labels = self.get_target_labels(y)
@@ -51,32 +51,36 @@ class CPGD:
             # This makes the model think the image belongs to the target class
             gradient = loss(pred, target_labels)
             
-            # calculate the gradient
+            # clear grads
             model.zero_grad()
+            if step.grad is not None:
+                step.grad.zero_()
+
             gradient.backward()
+            grad = step.grad
             
             with no_grad():
                 # Move in direction that increases target class probability
-                unproj_step = step - alpha * step.grad
+                unproj_step = step - alpha * grad.sign()
                 step = self.projection(unproj_step, x_orig)
                 
-                if norm(step - last_step) < self.tolerance:
+                # convergence check
+                if (step - last_step).abs().max() < self.tolerance:
                     break
-                last_step = step.detach()
 
-        return step
+                last_step = step.detach().clone()
+
+        return step.detach()
 
     def get_target_labels(self, y):
         """
-        Convert true labels to target labels based on mapping matrix
-        
-        @param y - true labels (batch)
-        @return target labels according to mapping
+        Vectorized mapping
         """
-        target_labels = zeros(y.size(), dtype=y.dtype, device=y.device)
-        for i, label in enumerate(y):
-            target_labels[i] = self.mapping[label.item()]
-        return target_labels
+        return torch.tensor(
+            [self.mapping[int(lbl)] for lbl in y],
+            device=y.device,
+            dtype=y.dtype
+        )
 
     def projection(self, x_adv, x_orig):
         """
@@ -95,6 +99,6 @@ class CPGD:
         
         # Add perturbation back to original and clip to valid image range [1, 1]
         x_projected = x_orig + perturbation
-        x_projected = torch.clamp(x_projected, 0, 1)
+        x_projected = torch.clamp(x_projected, -1, 1)
         
         return x_projected.clone().detach().requires_grad_(True)

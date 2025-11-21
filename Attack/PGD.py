@@ -32,9 +32,9 @@ class PGD:
         @param loss - callable loss, use loss of model being attacked
         @return the adversarial images
         '''
-        x_orig = x.clone().detach()  # Store original images
+        x_orig = x.clone().detach()
         step = x.clone().detach().requires_grad_(True)
-        last_step = x.detach()
+        last_step = step.detach().clone()
 
         for _ in range(self.iterations):
             # calculate predicted labels
@@ -44,17 +44,22 @@ class PGD:
 
             # calculate the output of the model
             model.zero_grad()
+            if step.grad is not None:
+                step.grad.zero_()
+
             gradient.backward()
+            grad = step.grad
 
             with no_grad():
-                unproj_step = step + alpha * step.grad  # Maximize loss (untargeted)
+                unproj_step = step + alpha * grad.sign()
                 step = self.projection(unproj_step, x_orig)
                 
-                if norm(step - last_step) < self.tolerance:
+                if (step - last_step).abs().max() < self.tolerance:
                     break
-                last_step = step.detach()
 
-        return step
+                last_step = step.detach().clone()
+
+        return step.detach()
 
     def projection(self, x_adv, x_orig):
         """
@@ -75,4 +80,4 @@ class PGD:
         x_projected = x_orig + perturbation
         x_projected = torch.clamp(x_projected, -1, 1)
         
-        return x_projected.clone().detach().requires_grad_(True)
+        return x_projected.detach().clone().requires_grad_(True)

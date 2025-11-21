@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 import csv
+import matplotlib.pyplot as plt
+import numpy as np
 
 # from Architecture.ResNet import ResNet18
 from Architecture.ResNet import ResNetAlt
@@ -135,6 +137,95 @@ def get_class_mapping(num_classes):
             except ValueError:
                 print("Invalid input. Please enter a number.")
     return mapping
+
+def generate_attack_examples(model, test_loader, attack_obj, loss_fn, save_path, attack_type, num_examples=5):
+    """Generate visualization comparing clean and adversarial images."""
+    model.eval()
+    
+    # Get random samples
+    all_images = []
+    all_labels = []
+    for images, labels in test_loader:
+        all_images.append(images)
+        all_labels.append(labels)
+        if len(all_images) * images.size(0) >= num_examples:
+            break
+    
+    all_images = torch.cat(all_images)[:num_examples]
+    all_labels = torch.cat(all_labels)[:num_examples]
+    
+    # Move to device
+    all_images = all_images.to(device)
+    all_labels = all_labels.to(device)
+    
+    # Generate adversarial examples
+    if attack_type == 'PGD':
+        adv_images = attack_obj.pgd(all_images, all_labels, attack_obj.alpha, model, loss_fn)
+    else:  # CPGD
+        adv_images = attack_obj.cpgd(all_images, all_labels, attack_obj.alpha, model, loss_fn)
+    
+    # Get predictions
+    with torch.no_grad():
+        clean_outputs = model(all_images)
+        adv_outputs = model(adv_images)
+        _, clean_preds = clean_outputs.max(1)
+        _, adv_preds = adv_outputs.max(1)
+    
+    # Move to CPU for visualization
+    all_images = all_images.cpu()
+    adv_images = adv_images.cpu()
+    clean_preds = clean_preds.cpu()
+    adv_preds = adv_preds.cpu()
+    all_labels = all_labels.cpu()
+    
+    # Calculate perturbations (amplified for visibility)
+    perturbations = adv_images - all_images
+    perturbations_vis = (perturbations - perturbations.min()) / (perturbations.max() - perturbations.min() + 1e-8)
+    
+    # Create figure with 3x5 grid
+    fig, axes = plt.subplots(3, num_examples, figsize=(15, 9))
+    
+    for i in range(num_examples):
+        # Denormalize images from [-1, 1] to [0, 1]
+        clean_img = (all_images[i].permute(1, 2, 0).numpy() + 1) / 2
+        adv_img = (adv_images[i].permute(1, 2, 0).numpy() + 1) / 2
+        pert_img = perturbations_vis[i].permute(1, 2, 0).numpy()
+        
+        # Clip to valid range
+        clean_img = np.clip(clean_img, 0, 1)
+        adv_img = np.clip(adv_img, 0, 1)
+        
+        # Top row: Clean images
+        axes[0, i].imshow(clean_img)
+        axes[0, i].set_title(f'True: {all_labels[i].item()}\nPred: {clean_preds[i].item()}', fontsize=9)
+        axes[0, i].axis('off')
+        
+        # Middle row: Perturbations (amplified)
+        axes[1, i].imshow(pert_img)
+        axes[1, i].set_title('Perturbation\n(amplified)', fontsize=9)
+        axes[1, i].axis('off')
+        
+        # Bottom row: Adversarial images
+        axes[2, i].imshow(adv_img)
+        axes[2, i].set_title(f'Adv Pred: {adv_preds[i].item()}', fontsize=9)
+        axes[2, i].axis('off')
+    
+    # Add row labels
+    axes[0, 0].text(-0.3, 0.5, 'Clean', transform=axes[0, 0].transAxes,
+                    fontsize=12, va='center', ha='right', rotation=90, fontweight='bold')
+    axes[1, 0].text(-0.3, 0.5, 'Perturbation', transform=axes[1, 0].transAxes,
+                    fontsize=12, va='center', ha='right', rotation=90, fontweight='bold')
+    axes[2, 0].text(-0.3, 0.5, 'Adversarial', transform=axes[2, 0].transAxes,
+                    fontsize=12, va='center', ha='right', rotation=90, fontweight='bold')
+    
+    plt.tight_layout()
+    
+    # Save figure
+    img_save_path = save_path.replace('.txt', '_examples.png')
+    plt.savefig(img_save_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    
+    print(f"\nExample images saved to: {img_save_path}")
 
 def attack_single_model(model_file, args, attack_type, mapping_folder=None):
     """Attack a single model."""
@@ -346,7 +437,23 @@ def attack_models_mode(args):
         
         loss_fn = model.getLoss()
         
-        # Create Results directory
+        # Get mapping if CPGD
+        mapping = None
+        if attack_choice == 2:
+            print("\nExecuting CPGD (Targeted) Attack...")
+            mapping = get_class_mapping(num_classes)
+            print(f"\nClass Mapping: {mapping}")
+        
+        # Prompt for example image generation
+        while True:
+            generate_examples = input("\nGenerate example images? (y/n): ").lower()
+            if generate_examples in ['y', 'n', 'yes', 'no']:
+                generate_examples = generate_examples.startswith('y')
+                break
+            else:
+                print("Invalid input. Please enter 'y' or 'n'.")
+        
+        # Create Results directory with attack parameters
         results_dir = f"./Output/Results/{args.iterations}_iterations_{args.alpha:.2f}_alpha"
         os.makedirs(results_dir, exist_ok=True)
         
@@ -364,11 +471,11 @@ def attack_models_mode(args):
                 alpha=args.alpha
             )
             attack.execute_attack()
-        else:
-            print("\nExecuting CPGD (Targeted) Attack...")
-            mapping = get_class_mapping(num_classes)
-            print(f"\nClass Mapping: {mapping}")
             
+            # Generate examples if requested
+            if generate_examples:
+                generate_attack_examples(model, test_loader, attack.pgd, loss_fn, save_path, 'PGD')
+        else:
             save_path = f"{results_dir}/{model_name}_{dataset_name}_cpgd.txt"
             attack = TargetedAttack(
                 model=model,
@@ -383,6 +490,10 @@ def attack_models_mode(args):
                 alpha=args.alpha
             )
             attack.execute_attack()
+            
+            # Generate examples if requested
+            if generate_examples:
+                generate_attack_examples(model, test_loader, attack.cpgd, loss_fn, save_path, 'CPGD')
 
 def main():
     parser = argparse.ArgumentParser(description='Controlled PGD Project')
