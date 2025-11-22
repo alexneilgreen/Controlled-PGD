@@ -18,7 +18,8 @@ class AdaptiveDataset(Dataset):
                  split: str = 'train',
                  root: str = './Data',
                  transform: Optional[transforms.Compose] = None,
-                 target_size: int = None):
+                 target_size: int = None,
+                 normalize: bool = False):
         """
         Initialize the adaptive dataset.
         
@@ -36,9 +37,9 @@ class AdaptiveDataset(Dataset):
         self.target_size = target_size
         
         # Load the appropriate dataset
-        self.dataset = self._load_dataset()
+        self.dataset = self._load_dataset(normalize=normalize)
     
-    def _load_dataset(self):
+    def _load_dataset(self, normalize=True):
         """Load the specified dataset."""
         # Determine target size - use original sizes if not specified
         if self.target_size is None:
@@ -51,20 +52,33 @@ class AdaptiveDataset(Dataset):
         
         # Base transforms
         if self.dataset_name in ['mnist', 'kmnist']:
-            # MNIST/KMNIST: Convert grayscale to RGB
-            base_transform = transforms.Compose([
-                transforms.Grayscale(num_output_channels=3),
-                transforms.Resize(size),
-                transforms.ToTensor(),
-                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-            ])
+            # MNIST: Convert grayscale to RGB
+            if normalize is True:
+                base_transform = transforms.Compose([
+                    transforms.Grayscale(num_output_channels=3),
+                    transforms.Resize(size),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+                ])
+            else:
+                base_transform = transforms.Compose([
+                    transforms.Grayscale(num_output_channels=3),
+                    transforms.Resize(size),
+                    transforms.ToTensor()
+                ])
         else:
             # RGB datasets
-            base_transform = transforms.Compose([
-                transforms.Resize(size),
-                transforms.ToTensor(),
-                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-            ])
+            if normalize is True:
+                base_transform = transforms.Compose([
+                    transforms.Resize(size),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+                ])
+            else:
+                base_transform = transforms.Compose([
+                    transforms.Resize(size),
+                    transforms.ToTensor()
+                ])
         
         if self.dataset_name == 'mnist':
             mnist_path = os.path.join(self.root, 'MNIST')
@@ -177,7 +191,8 @@ def get_dataloader(dataset_name: str,
                   shuffle: bool = True,
                   root: str = './Data',
                   num_workers: int = 4,
-                  target_size: int = None) -> DataLoader:
+                  target_size: int = None,
+                  normalize: bool = False) -> DataLoader:
     """
     Create a DataLoader for the specified dataset.
     
@@ -197,7 +212,8 @@ def get_dataloader(dataset_name: str,
         dataset_name=dataset_name,
         split=split,
         root=root,
-        target_size=target_size
+        target_size=target_size,
+        normalize=normalize
     )
     
     return DataLoader(
@@ -233,7 +249,8 @@ def get_random_test_slice(dataset_name: str, size=64,
         dataset_name=dataset_name,
         split="test",
         root=root,
-        target_size=target_size
+        target_size=target_size,
+        normalize=False
     )
     indices = randperm(len(dataset))[:size]
     dataSubSet = Subset(dataset, indices)
@@ -269,15 +286,12 @@ def get_image_size_for_model(model_name, dataset_name):
 def get_dataset_labels(dataset_name):
     current_file_directory = os.path.dirname(os.path.abspath(__file__))
     mapping = {}
-    file = current_file_directory.join(f"{dataset_name}.csv")
+    file = os.path.join(current_file_directory, f"labels/{dataset_name}.csv")
     with open(file, 'r') as csvfile:
         csv_reader = csv.reader(csvfile)
         for row in csv_reader:
             mapping[int(row[0])] = str(row[1])
     return mapping
-
-
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Test data loader')

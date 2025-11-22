@@ -1,6 +1,7 @@
 import torch
 from torch import no_grad
 from torch.linalg import norm
+from Architecture.VLM import VLM
 
 class PGD:
     def __init__(self, iterations=100, tolerance=0.000001, epsilon=0.3, alpha=0.01):
@@ -47,9 +48,9 @@ class PGD:
             if step.grad is not None:
                 step.grad.zero_()
 
-            gradient.backward()
+            if not isinstance(model, VLM):
+                gradient.backward()
             grad = step.grad
-
             with no_grad():
                 unproj_step = step + alpha * grad.sign()
                 step = self.projection(unproj_step, x_orig)

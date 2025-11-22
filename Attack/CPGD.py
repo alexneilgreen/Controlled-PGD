@@ -1,6 +1,11 @@
+<<<<<<< HEAD
 import torch
 from torch import no_grad, zeros
+=======
+from torch import no_grad, zeros, device, cuda
+>>>>>>> e49f9b5 (Another kinda broken commit)
 from torch.linalg import norm
+from Architecture.VLM import VLM
 
 class CPGD:
     def __init__(self, iterations=100, tolerance=0.000001, epsilon=0.3, alpha=0.01, num_classes=10, mapping=None):
@@ -42,6 +47,11 @@ class CPGD:
         
         # Create target labels based on mapping
         target_labels = self.get_target_labels(y)
+        if isinstance(model, VLM):
+            tgt_lbls = []
+            for i, label in enumerate(y):
+                tgt_lbls.append(model.translate_label(label))
+            target_labels = tgt_lbls
         
         for _ in range(self.iterations):
             # calculate predicted labels
@@ -49,7 +59,11 @@ class CPGD:
             
             # Use negative loss to maximize probability of target class
             # This makes the model think the image belongs to the target class
-            gradient = loss(pred, target_labels)
+            gradient = None
+            if isinstance(model, VLM) and isinstance(target_labels, list):
+                gradient = loss(pred, target_labels[0])
+            else:
+                gradient = loss(pred, target_labels)
             
             # clear grads
             model.zero_grad()

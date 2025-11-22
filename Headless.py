@@ -6,7 +6,7 @@ from Architecture.ResNet import ResNetAlt
 from Architecture.ViT import ViT
 from Architecture.VLM import VLM
 from Attack.Classes import UntargetedAttack, TargetedAttack
-from Data_Loaders.Data_Loader import get_dataloader, get_num_classes, get_image_size_for_model, get_dataset_labels
+from Data_Loaders.Data_Loader import get_dataloader, get_num_classes, get_image_size_for_model, get_dataset_labels, get_random_test_slice
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -15,12 +15,12 @@ def parse_class_map(path):
     with open(path, 'r') as csvfile:
         csv_reader = csv.reader(csvfile)
         for row in csv_reader:
-            mapping[row[0]] = row[1]
+            mapping[int(row[0])] = row[1]
     return mapping
 
 def main():
     parser = argparse.ArgumentParser(description='Controlled PGD Project')
-    parser.add_argument('--train', type=bool, action='store_true')
+    parser.add_argument('--train', action='store_true')
     parser.add_argument('--model', type=str, choices=['resnet', 'vit', 'vlm'], default='resnet',
                        help='Model architecture to train')
     parser.add_argument('--dataset', type=str, choices=['mnist', 'cifar10', 'cifar100', 'stl10'], 
@@ -34,7 +34,7 @@ def main():
     parser.add_argument('--num_workers', type=int, default=4, help='Number of dataloader workers')
     
     # Attack arguments
-    parser.add_argument('--type', type=str, choices=['PGD', 'CPGD'], default='PGD', help='Type of attack')
+    parser.add_argument('--att_type', type=str, choices=['PGD', 'CPGD'], default='PGD', help='Type of attack')
     parser.add_argument('--map', type=str, help='The class map on disk')
     parser.add_argument('--iterations', type=int, default=100, help='Number of attack iterations')
     parser.add_argument('--tolerance', type=float, default=0.000001, help='Attack convergence tolerance')
@@ -51,8 +51,23 @@ def main():
     elif args.model == 'vit':
         model = ViT(args.dataset, num_classes)
     elif args.model == 'vlm':
-        model = VLM(args.dataset, get_dataset_labels(args.dataset))
-    
+        model = VLM(args.dataset, num_classes, get_dataset_labels(args.dataset))
+    if args.model == 'vlm:':
+        test_loader = get_random_test_slice(
+            dataset_name=args.dataset,
+            batch_size=args.batch_size,
+            size=100)
+    else:
+        test_loader = get_dataloader(
+            dataset_name=args.dataset,
+            split='test',
+            batch_size=args.batch_size,
+            shuffle=False,
+            num_workers=args.num_workers,
+            target_size=img_size,
+            normalize=(args.model != 'vlm')
+        )
+
     if args.train:
         os.makedirs('./Output/Models', exist_ok=True)
         
@@ -61,15 +76,6 @@ def main():
             split='train',
             batch_size=args.batch_size,
             shuffle=True,
-            num_workers=args.num_workers,
-            target_size=img_size
-        )
-        
-        test_loader = get_dataloader(
-            dataset_name=args.dataset,
-            split='test',
-            batch_size=args.batch_size,
-            shuffle=False,
             num_workers=args.num_workers,
             target_size=img_size
         )
@@ -84,7 +90,7 @@ def main():
     loss_fn = model.getLoss()
     
     os.makedirs('./Output/Results', exist_ok=True)
-    if args.type == 'PGD':
+    if args.att_type == 'PGD':
         print("\nExecuting PGD (Untargeted) Attack...")
         save_path = f"./Output/Results/{args.model}_{args.dataset}_pgd.txt"
         attack = UntargetedAttack(

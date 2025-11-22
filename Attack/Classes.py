@@ -6,6 +6,7 @@ from typing import Optional
 from Attack.PGD import PGD
 from Attack.CPGD import CPGD
 from Output.Results.Reporter import SimpleAccReporter, TargetedSuccessReporter
+from Architecture.VLM import VLM
 
 dev = device("cuda" if cuda.is_available() else "cpu")
 
@@ -52,6 +53,9 @@ class UntargetedAttack:
         
         for batch_idx, (data, label) in enumerate(self.dataloader):
             data = data.to(device=dev)
+            if isinstance(self.model, VLM):
+                label = self.model.translate_label(label[0])
+
             label = label.to(device=dev)
             
             # Generate adversarial examples
