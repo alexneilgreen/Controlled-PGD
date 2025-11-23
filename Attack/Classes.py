@@ -83,13 +83,13 @@ class UntargetedAttack:
 
 
 class TargetedAttack:
-    def __init__(self, model, loss, dataloader, num_classes=10, mapping=None, save_path=None, **kwargs):
+    def __init__(self, model, loss, dataloader, num_classes=10, mapping=None, save_path=None, dataset_save_path=None, **kwargs):
         self.model = model
         self.loss = loss
         self.dataloader = dataloader
         self.num_classes = num_classes
         self.save_path = save_path
-        self.adv_ds_save_path = os.join(self.save_path, "adv")
+        self.adv_ds_save_path = dataset_save_path
 
         iterations = kwargs.get('iterations', 100)
         tolerance = kwargs.get('tolerance', 0.000001)
