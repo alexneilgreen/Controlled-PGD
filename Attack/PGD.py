@@ -48,8 +48,8 @@ class PGD:
             if step.grad is not None:
                 step.grad.zero_()
 
-            if not isinstance(model, VLM):
-                gradient.backward()
+            
+            gradient.backward()
             grad = step.grad
             with no_grad():
                 unproj_step = step + alpha * grad.sign()

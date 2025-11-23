@@ -10,8 +10,9 @@ import numpy as np
 # from Architecture.ResNet import ResNet18
 from Architecture.ResNet import ResNetAlt
 from Architecture.ViT import ViT
+from Architecture.VLM import VLM
 from Attack.Classes import UntargetedAttack, TargetedAttack
-from Data_Loaders.Data_Loader import get_dataloader, get_available_datasets, get_num_classes, get_image_size_for_model
+from Data_Loaders.Data_Loader import get_dataloader, get_available_datasets, get_num_classes, get_image_size_for_model, get_dataset_labels
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -61,6 +62,8 @@ def train_models_mode(args):
                 model = ResNetAlt(dataset_name, num_classes)
             elif model_name == 'vit':
                 model = ViT(dataset_name, num_classes)
+            elif model_name == 'vlm':
+                model = VLM()
             
             if model.isPretrainOnDisk() and not args.retrain:
                 print(f"Model already exists. Skipping...")
@@ -484,7 +487,7 @@ def main():
                        help='Mode: train models or implement attacks')
     
     # Training arguments
-    parser.add_argument('--model', type=str, choices=['resnet', 'vit', 'all'], default='all',
+    parser.add_argument('--model', type=str, choices=['resnet', 'vit', 'vlm', 'all'], default='all',
                        help='Model architecture to train')
     parser.add_argument('--dataset', type=str, choices=['mnist', 'kmnist', 'cifar10', 'cifar100', 'stl10', 'svhn', 'all'], 
                        default='all', help='Dataset to use')

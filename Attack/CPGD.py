@@ -1,9 +1,5 @@
-<<<<<<< HEAD
 import torch
-from torch import no_grad, zeros
-=======
 from torch import no_grad, zeros, device, cuda
->>>>>>> e49f9b5 (Another kinda broken commit)
 from torch.linalg import norm
 from Architecture.VLM import VLM
 

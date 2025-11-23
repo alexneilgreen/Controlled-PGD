@@ -3,21 +3,25 @@ import torch
 import evaluate
 import numpy as np
 import torch.nn.functional as F
-from torch.nn import CosineEmbeddingLoss
+from torch.nn import CosineEmbeddingLoss, CrossEntropyLoss
 import os
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-class AdaptiveCosineLoss():
+class AdaptiveLoss():
     def __init__(self):
-        self.loss = CosineEmbeddingLoss(margin=.5)
+        #self.loss = CosineEmbeddingLoss(margin=.5)
+        self.loss = CrossEntropyLoss(ignore_index=-100)
     
     def forward(self, input1, input2):
-        d1max = max(input1.shape[1], input2.shape[1])
-        input1 = F.pad(input1, (0, d1max - input1.shape[1])).to(device=device)
-        input2 = F.pad(input2, (0, d1max - input2.shape[1])).to(device=device)
-        target = -1 * torch.ones(input1.shape[1]).to(device=device)
-        return self.loss(input1, input2, target)
+        max_len = max(input1.size(0), input2.size(0))
+        if input1.dim() == 3:
+            input1 = input1.view(-1, input1.size(-1))
+        if input2.dim() == 2:
+            input2 = input2.view(-1)
+        input1 = F.pad(input1, (0, 0, 0, max_len - input1.size(0)))
+        input2 = F.pad(input2, (0, max_len - input2.size(0)), value=-100)
+        return self.loss(input1, input2)
 
     def __call__(self, input1, input2):
         return self.forward(input1, input2)
@@ -69,7 +73,7 @@ class VLM():
             return_tensors="pt",
             ).to(device, dtype=torch.bfloat16)
         generated_ids = self.model.generate(**inputs, max_new_tokens=1024, output_scores=True, return_dict_in_generate=True)
-        return generated_ids.sequences[:, inputs.input_ids.shape[1]:-1]
+        return (generated_ids.sequences[:, inputs.input_ids.shape[1]:-1], generated_ids.scores)
 
     def get_logtis(self, images):
         generated_ids = self.prompt_model(images)
@@ -85,9 +89,9 @@ class VLM():
         else:
             generated_ids = self.prompt_model(x)
             with open(self.repsonses_file, 'a') as f:
-                lines = self.processor.batch_decode(generated_ids, skip_special_tokens=True)
-                f.writelines(lines)
-            return generated_ids.to(device=device) #F.softmax(generated_ids.scores[0], dim=-1)
+                lines = self.processor.batch_decode(generated_ids[0], skip_special_tokens=True)
+                f.writelines(lines[0] + "\n")
+            return F.softmax(generated_ids[1][0], dim=-1).to(device=device)
         
     def training_loop(self, train, epochs=10, lr=0.001, test_loader=None, batch_size=64):
         print('Classfication Fine-Tuning disabled for VLM!')
@@ -106,7 +110,7 @@ class VLM():
         pass
 
     def getLoss(self):
-        return AdaptiveCosineLoss()
+        return AdaptiveLoss()
 
     def compute_metrics(self, eval_pred):
         logits, labels = eval_pred
@@ -120,22 +124,3 @@ class VLM():
         label = self.labels[label.item()]
         parsed = self.processor(text=label, return_tensors="pt")
         return parsed.input_ids.to(device=device)
-        #messages = [
-        #    {
-        #        "role": "user",
-        #        "content": [
-        #            {"type": "text", "text": label}
-        #        ],
-        #    }
-        #]
-        #
-        #inputs = self.processor.apply_chat_template(
-        #    messages,
-        #    return_tensors="pt",
-        #    add_generation_prompt=True,
-        #    tokenize=True,
-        #).to(device)
-        #with torch.no_grad():
-        #    output = self.model(**inputs, output_hidden_states=True)
-        #    # The last hidden state represents the text encoding/embedding
-        #    return output.hidden_states[-1]
