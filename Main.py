@@ -142,17 +142,29 @@ def generate_attack_examples(model, test_loader, attack_obj, loss_fn, save_path,
     """Generate visualization comparing clean and adversarial images."""
     model.eval()
     
-    # Get random samples
-    all_images = []
-    all_labels = []
+    # Collect images by class to ensure we get one from each target class
+    target_classes = [0, 2, 4, 6, 8]
+    class_images = {cls: [] for cls in target_classes}
+    class_labels = {cls: [] for cls in target_classes}
+    
+    # Collect images from each target class
     for images, labels in test_loader:
-        all_images.append(images)
-        all_labels.append(labels)
-        if len(all_images) * images.size(0) >= num_examples:
+        for cls in target_classes:
+            if len(class_images[cls]) == 0:  # Only need one per class
+                # Find indices of this class in the batch
+                indices = (labels == cls).nonzero(as_tuple=True)[0]
+                if len(indices) > 0:
+                    # Take the first image from this class
+                    class_images[cls].append(images[indices[0]])
+                    class_labels[cls].append(labels[indices[0]])
+        
+        # Check if we have all classes
+        if all(len(class_images[cls]) > 0 for cls in target_classes):
             break
     
-    all_images = torch.cat(all_images)[:num_examples]
-    all_labels = torch.cat(all_labels)[:num_examples]
+    # Stack the images in order [0, 2, 4, 6, 8]
+    all_images = torch.stack([class_images[cls][0] for cls in target_classes])
+    all_labels = torch.stack([class_labels[cls][0] for cls in target_classes])
     
     # Move to device
     all_images = all_images.to(device)
@@ -160,9 +172,11 @@ def generate_attack_examples(model, test_loader, attack_obj, loss_fn, save_path,
     
     # Generate adversarial examples
     if attack_type == 'PGD':
-        adv_images = attack_obj.pgd(all_images, all_labels, attack_obj.alpha, model, loss_fn)
+        # For UntargetedAttack, access the pgd object
+        adv_images = attack_obj.pgd(all_images, all_labels, attack_obj.pgd.alpha, model, loss_fn)
     else:  # CPGD
-        adv_images = attack_obj.cpgd(all_images, all_labels, attack_obj.alpha, model, loss_fn)
+        # For TargetedAttack, access the cpgd object
+        adv_images = attack_obj.cpgd(all_images, all_labels, attack_obj.cpgd.alpha, model, loss_fn)
     
     # Get predictions
     with torch.no_grad():
@@ -178,9 +192,24 @@ def generate_attack_examples(model, test_loader, attack_obj, loss_fn, save_path,
     adv_preds = adv_preds.cpu()
     all_labels = all_labels.cpu()
     
-    # Calculate perturbations (amplified for visibility)
+    # Calculate perturbations (raw difference)
     perturbations = adv_images - all_images
-    perturbations_vis = (perturbations - perturbations.min()) / (perturbations.max() - perturbations.min() + 1e-8)
+    
+    # Amplify perturbations by 10x for visibility
+    perturbations_vis = perturbations * 10
+    
+    # Normalize amplified perturbations
+    perturbations_amplified = []
+    for i in range(num_examples):
+        pert = perturbations_vis[i]
+        pert_min = pert.min()
+        pert_max = pert.max()
+        if pert_max - pert_min > 1e-8:
+            pert_norm = (pert - pert_min) / (pert_max - pert_min)
+        else:
+            pert_norm = torch.zeros_like(pert)
+        perturbations_amplified.append(pert_norm)
+    perturbations_amplified = torch.stack(perturbations_amplified)
     
     # Create figure with 3x5 grid
     fig, axes = plt.subplots(3, num_examples, figsize=(15, 9))
@@ -189,36 +218,46 @@ def generate_attack_examples(model, test_loader, attack_obj, loss_fn, save_path,
         # Denormalize images from [-1, 1] to [0, 1]
         clean_img = (all_images[i].permute(1, 2, 0).numpy() + 1) / 2
         adv_img = (adv_images[i].permute(1, 2, 0).numpy() + 1) / 2
-        pert_img = perturbations_vis[i].permute(1, 2, 0).numpy()
+        pert_img_amp = perturbations_amplified[i].permute(1, 2, 0).numpy()
         
         # Clip to valid range
         clean_img = np.clip(clean_img, 0, 1)
         adv_img = np.clip(adv_img, 0, 1)
         
-        # Top row: Clean images
-        axes[0, i].imshow(clean_img)
-        axes[0, i].set_title(f'True: {all_labels[i].item()}\nPred: {clean_preds[i].item()}', fontsize=9)
+        # Handle grayscale images (if all channels are the same)
+        if clean_img.shape[2] == 3 and np.allclose(clean_img[:,:,0], clean_img[:,:,1]) and np.allclose(clean_img[:,:,1], clean_img[:,:,2]):
+            clean_img = clean_img[:,:,0]
+            adv_img = adv_img[:,:,0]
+            pert_img_amp = pert_img_amp[:,:,0]
+            cmap = 'gray'
+        else:
+            cmap = None
+        
+        # Row 1: Clean images with True Label in bold and larger
+        axes[0, i].imshow(clean_img, cmap=cmap)
+        axes[0, i].set_title(f'$\\bf{{True: {all_labels[i].item()}}}$\nPred: {clean_preds[i].item()}', 
+                            fontsize=11)
         axes[0, i].axis('off')
         
-        # Middle row: Perturbations (amplified)
-        axes[1, i].imshow(pert_img)
-        axes[1, i].set_title('Perturbation\n(amplified)', fontsize=9)
+        # Row 2: Perturbations (amplified by 10x)
+        axes[1, i].imshow(pert_img_amp, cmap='hot')
+        axes[1, i].set_title('Perturbation\n(10x amplified)', fontsize=9)
         axes[1, i].axis('off')
         
-        # Bottom row: Adversarial images
-        axes[2, i].imshow(adv_img)
+        # Row 3: Adversarial images
+        axes[2, i].imshow(adv_img, cmap=cmap)
         axes[2, i].set_title(f'Adv Pred: {adv_preds[i].item()}', fontsize=9)
         axes[2, i].axis('off')
     
-    # Add row labels
-    axes[0, 0].text(-0.3, 0.5, 'Clean', transform=axes[0, 0].transAxes,
-                    fontsize=12, va='center', ha='right', rotation=90, fontweight='bold')
-    axes[1, 0].text(-0.3, 0.5, 'Perturbation', transform=axes[1, 0].transAxes,
-                    fontsize=12, va='center', ha='right', rotation=90, fontweight='bold')
-    axes[2, 0].text(-0.3, 0.5, 'Adversarial', transform=axes[2, 0].transAxes,
-                    fontsize=12, va='center', ha='right', rotation=90, fontweight='bold')
+    # Add row labels on the left side
+    fig.text(0.02, 0.83, 'Clean', fontsize=12, va='center', ha='center', 
+             rotation=90, fontweight='bold')
+    fig.text(0.02, 0.50, 'Perturbation', fontsize=12, va='center', ha='center', 
+             rotation=90, fontweight='bold')
+    fig.text(0.02, 0.17, 'Adversarial', fontsize=12, va='center', ha='center', 
+             rotation=90, fontweight='bold')
     
-    plt.tight_layout()
+    plt.tight_layout(rect=[0.03, 0, 1, 1])
     
     # Save figure
     img_save_path = save_path.replace('.txt', '_examples.png')
@@ -226,6 +265,7 @@ def generate_attack_examples(model, test_loader, attack_obj, loss_fn, save_path,
     plt.close()
     
     print(f"\nExample images saved to: {img_save_path}")
+    print(f"Classes sampled: {target_classes}")
 
 def attack_single_model(model_file, args, attack_type, mapping_folder=None):
     """Attack a single model."""
@@ -474,7 +514,7 @@ def attack_models_mode(args):
             
             # Generate examples if requested
             if generate_examples:
-                generate_attack_examples(model, test_loader, attack.pgd, loss_fn, save_path, 'PGD')
+                generate_attack_examples(model, test_loader, attack, loss_fn, save_path, 'PGD')
         else:
             save_path = f"{results_dir}/{model_name}_{dataset_name}_cpgd.txt"
             attack = TargetedAttack(
@@ -493,7 +533,7 @@ def attack_models_mode(args):
             
             # Generate examples if requested
             if generate_examples:
-                generate_attack_examples(model, test_loader, attack.cpgd, loss_fn, save_path, 'CPGD')
+                generate_attack_examples(model, test_loader, attack, loss_fn, save_path, 'CPGD')
 
 def main():
     parser = argparse.ArgumentParser(description='Controlled PGD Project')
