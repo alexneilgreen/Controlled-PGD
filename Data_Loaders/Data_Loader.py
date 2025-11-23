@@ -41,16 +41,16 @@ class AdaptiveDataset(Dataset):
         """Load the specified dataset."""
         # Determine target size - use original sizes if not specified
         if self.target_size is None:
-            if self.dataset_name in ['mnist', 'cifar10', 'cifar100']:
+            if self.dataset_name in ['mnist', 'kmnist', 'cifar10', 'cifar100', 'svhn']:
                 size = 32
-            else:  # stl10
+            else: # stl10
                 size = 96
         else:
             size = self.target_size
         
         # Base transforms
-        if self.dataset_name == 'mnist':
-            # MNIST: Convert grayscale to RGB
+        if self.dataset_name in ['mnist', 'kmnist']:
+            # MNIST/KMNIST: Convert grayscale to RGB
             base_transform = transforms.Compose([
                 transforms.Grayscale(num_output_channels=3),
                 transforms.Resize(size),
@@ -76,6 +76,21 @@ class AdaptiveDataset(Dataset):
                 )
             else:  # test
                 return torchvision.datasets.MNIST(
+                    root=self.root, train=False, download=download_needed,
+                    transform=base_transform
+                )
+        
+        elif self.dataset_name == 'kmnist':
+            kmnist_path = os.path.join(self.root, 'KMNIST')
+            download_needed = not os.path.exists(kmnist_path)
+            
+            if self.split == 'train':
+                return torchvision.datasets.KMNIST(
+                    root=self.root, train=True, download=download_needed,
+                    transform=base_transform
+                )
+            else:  # test
+                return torchvision.datasets.KMNIST(
                     root=self.root, train=False, download=download_needed,
                     transform=base_transform
                 )
@@ -118,6 +133,17 @@ class AdaptiveDataset(Dataset):
             return torchvision.datasets.STL10(
                 root=self.root, split=split_map[self.split], download=download_needed,
                 transform=base_transform
+            )
+        
+        elif self.dataset_name == 'svhn':
+            svhn_path = os.path.join(self.root, 'svhn')
+            download_needed = not os.path.exists(svhn_path)
+            
+            # SVHN uses 'train', 'test', 'extra' splits
+            split_map = {'train': 'train', 'test': 'test', 'val': 'test'}
+            return torchvision.datasets.SVHN(
+                root=self.root, split=split_map[self.split], 
+                download=download_needed, transform=base_transform
             )
         
         else:
@@ -220,7 +246,7 @@ def get_random_test_slice(dataset_name: str, size=64,
 
 def get_available_datasets() -> List[str]:
     """Return list of available datasets."""
-    return ['mnist', 'cifar10', 'cifar100', 'stl10']
+    return ['mnist', 'kmnist', 'cifar10', 'cifar100', 'stl10', 'svhn']
 
 
 if __name__ == "__main__":
