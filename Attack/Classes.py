@@ -46,7 +46,7 @@ class UntargetedAttack:
         self.reporter = SimpleAccReporter(save_path=save_path, attack_params=self.attack_params)
 
     def execute_attack(self):
-        self.model.eval()
+        # self.model.eval()
         print("\nExecuting PGD Attack...")
         print(f"Processing {len(self.dataloader)} batches...")
         
@@ -115,7 +115,7 @@ class TargetedAttack:
             print("\n No mapping for CPGD attack. Please restart with mapping.")
 
     def execute_attack(self):
-        self.model.eval()
+        # self.model.eval()
         print("\nExecuting CPGD Attack...")
         print(f"Processing {len(self.dataloader)} batches...")
         
