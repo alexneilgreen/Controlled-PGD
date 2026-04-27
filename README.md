@@ -1,210 +1,170 @@
+<!-- SHOWCASE: true -->
+
 # Controlled PGD (CPGD) Attack Framework
 
-A comprehensive PyTorch framework for training deep learning models and evaluating their robustness against PGD (Projected Gradient Descent) and CPGD (Controlled PGD) attacks.
+> A PyTorch framework for training ResNet18 and Vision Transformer models and evaluating their robustness against untargeted PGD and targeted CPGD adversarial attacks.
 
-## Project Structure
+![Status](https://img.shields.io/badge/status-complete-brightgreen)
+![Language](https://img.shields.io/badge/language-Python-blue)
+![Semester](https://img.shields.io/badge/semester-Fall%202025-orange)
+
+---
+
+## Course Information
+
+| Field                  | Details                                                                                                                                                                                                                                            |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Course Title           | Special Topics: Trustworthy Machine Learning                                                                                                                                                                                                       |
+| Course Number          | CAP 6938                                                                                                                                                                                                                                           |
+| Semester               | Fall 2025                                                                                                                                                                                                                                          |
+| Assignment Title       | Course Final Project                                                                                                                                                                                                                               |
+| Assignment Description | Final course project on ML + Attack/Defense. Students select a topic within adversarial machine learning, ideally aligned with their own research, and deliver a proposal followed by a final presentation and report. Groups of up to 4 students. |
+
+---
+
+## Project Description
+
+This framework trains ResNet18 and ViT-Tiny classifiers on six image datasets (MNIST, KMNIST, CIFAR-10, CIFAR-100, STL-10, SVHN) and evaluates their robustness against white-box adversarial attacks. The untargeted PGD attack iteratively perturbs inputs under an L-infinity constraint to induce misclassification, while the novel CPGD (Controlled PGD) attack extends this by minimizing loss toward a predefined target class using a CSV class-mapping file. Results are saved as structured reports containing global and per-class attack success rates, enabling direct comparison across architectures, datasets, and hyperparameter configurations.
+
+---
+
+## Screenshots / Demo
+
+> _No screenshot available. Add one with: `![Demo](docs/your-image.png)`_
+
+---
+
+## Results
+
+When run correctly, the framework produces per-model attack result files under `Output/Results/{iterations}_iterations_{alpha}_alpha/`. Each file reports:
+
+```
+=== PGD Attack Results ===
+Attack Parameters: iterations=100, alpha=0.01, epsilon=0.3, tolerance=1e-06
+
+Overall Accuracy Under Attack: 12.34%
+Global Attack Success Rate (GASR): 87.66%
+
+Per-Class Attack Success Rate (IASR):
+  Class 0: 91.2%
+  Class 1: 84.7%
+  ...
+```
+
+For CPGD runs, an additional targeted success report shows how often each class was forced to its specified target. Training metrics for all model/dataset combinations are appended to `Output/Models/Training_Metrics.csv`, with columns for architecture, dataset, epochs completed, learning rate, batch size, train/test accuracy, and whether early stopping triggered.
+
+Key indicators: a GASR above ~80% at default hyperparameters indicates a successful attack. If accuracy under attack remains high, try increasing `--iterations` or `--epsilon`. If training accuracy is unexpectedly low, verify GPU availability and inspect `Training_Metrics.csv` for early-stop events.
+
+---
+
+## Key Concepts
+
+`adversarial-attacks` `projected-gradient-descent` `targeted-attacks` `l-infinity-norm` `white-box-attacks` `residual-networks` `vision-transformers` `image-classification` `mixed-precision-training` `early-stopping`
+
+---
+
+## Languages & Tools
+
+- **Language:** Python 3.10+
+- **Framework/SDK:** PyTorch, HuggingFace Transformers, HuggingFace Evaluate
+- **Hardware:** CUDA-capable GPU (automatic CPU fallback supported)
+- **Build System:** pip / requirements.txt
+
+---
+
+## File Structure
 
 ```
 .
-├── Main.py                          # Main entry point for training and attacking
+├── Main.py                          # CLI entry point: train and attack modes
 ├── requirements.txt                 # Python dependencies
 │
 ├── Architecture/
-│   ├── ResNet.py                   # ResNet18 implementation
-│   └── ViT.py                      # Vision Transformer implementation
+│   ├── ResNet.py                    # Custom ResNet18 with mixed-precision training and early stopping
+│   └── ViT.py                       # ViT-Tiny fine-tuning via HuggingFace Trainer
 │
 ├── Attack/
-│   ├── Classes.py                  # Attack wrapper classes
-│   ├── PGD.py                      # PGD (untargeted) attack
-│   ├── CPGD.py                     # CPGD (targeted) attack
-│   └── Mapping/                    # Class mapping files for CPGD
-│       ├── 10class.csv
-│       ├── 100class.csv
+│   ├── Classes.py                   # UntargetedAttack and TargetedAttack orchestration wrappers
+│   ├── PGD.py                       # PGD untargeted attack implementation
+│   ├── CPGD.py                      # CPGD targeted attack implementation
+│   └── Mapping/
+│       ├── 10class.csv              # Source->target class mapping for 10-class datasets
+│       └── 100Class.csv             # Source->target class mapping for CIFAR-100
 │
 ├── Data_Loaders/
-│   └── Data_Loader.py              # Dataset loading utilities
+│   └── Data_Loader.py               # Dataset download and dataloader utilities
 │
 ├── Output/
 │   ├── Results/
-│   │   └── Reporter.py             # Attack result reporting
-│   └── Models/                     # Saved trained models
-│       └── Training_Metrics.csv    # Training history
+│   │   └── Reporter.py              # Attack result reporting (GASR, IASR, targeted success)
+│   └── Models/                      # Saved model weights and Training_Metrics.csv
 │
-└── Data/                           # Downloaded datasets (auto-created)
+└── Data/                            # Downloaded datasets (auto-created on first run)
 ```
 
-## Installation
+---
 
-Install all required dependencies using pip:
+## Installation & Usage
+
+### Prerequisites
+
+- Python 3.10+
+- CUDA-capable GPU recommended (CPU fallback supported but significantly slower)
+
+### Setup
 
 ```bash
+# 1. Clone the repository
+git clone https://github.com/alexneilgreen/UCF-CAP6938-CPGDAttackFramework.git
+cd UCF-CAP6938-CPGDAttackFramework
+
+# 2. Install dependencies
 pip install -r requirements.txt
-```
 
-**Requirements:**
-- PyTorch >= 2.0.0
-- torchvision >= 0.15.0
-- transformers >= 4.30.0
-- evaluate >= 0.4.0
-- datasets >= 2.12.0
-- accelerate >= 0.26.0
-- numpy >= 1.24.0
-- pillow >= 9.5.0
-
-## Quick Start
-
-### Training Models
-
-Basic command to train all models on all datasets:
-
-```bash
+# 3. Train all models on all datasets
 python Main.py --mode train
-```
 
-Train a specific model on a specific dataset:
-
-```bash
-python Main.py --mode train --model resnet --dataset cifar10
-```
-
-### Attacking Models
-
-Basic command to attack all trained models with PGD:
-
-```bash
+# 4. Attack all trained models with PGD (untargeted, headless)
 python Main.py --mode attack --type PGD
-```
 
-Attack all models with CPGD (targeted attack):
+# 5. Attack all trained models with CPGD (targeted, headless)
+python Main.py --mode attack --type CPGD --map Attack/Mapping
 
-```bash
-python Main.py --mode attack --type CPGD
-```
-
-Attack with interactive menu:
-
-```bash
+# 6. Interactive menu (select model and attack type, optionally save example images)
 python Main.py --mode attack --attack_menu
 ```
 
-## Training Mode Arguments
+### Controls
 
-| Argument | Type | Choices | Default | Description |
-|----------|------|---------|---------|-------------|
-| `--mode` | str | train, attack | **Required** | Operating mode |
-| `--model` | str | resnet, vit, all | all | Model architecture to train |
-| `--dataset` | str | mnist, kmnist, cifar10, cifar100, stl10, svhn, all | all | Dataset to use |
-| `--epochs` | int | - | 15 | Number of training epochs |
-| `--lr` | float | - | 0.001 | Learning rate |
-| `--batch_size` | int | - | 64 | Batch size for training |
-| `--num_workers` | int | - | 4 | Number of dataloader workers |
-| `--retrain` | flag | - | False | Force retrain existing models |
+| Argument        | Default          | Description                                                         |
+| --------------- | ---------------- | ------------------------------------------------------------------- |
+| `--mode`        | required         | `train` or `attack`                                                 |
+| `--model`       | `all`            | `resnet`, `vit`, or `all`                                           |
+| `--dataset`     | `all`            | `mnist`, `kmnist`, `cifar10`, `cifar100`, `stl10`, `svhn`, or `all` |
+| `--epochs`      | `15`             | Number of training epochs                                           |
+| `--lr`          | `0.001`          | Learning rate                                                       |
+| `--batch_size`  | `64`             | Batch size                                                          |
+| `--retrain`     | `False`          | Force retrain existing models                                       |
+| `--type`        | `PGD`            | Attack type in headless mode: `PGD` or `CPGD`                       |
+| `--iterations`  | `100`            | Number of attack iterations                                         |
+| `--alpha`       | `0.01`           | Attack step size                                                    |
+| `--epsilon`     | `0.3`            | Maximum L-inf perturbation                                          |
+| `--tolerance`   | `1e-6`           | Convergence tolerance                                               |
+| `--map`         | `Attack/Mapping` | Path to CPGD mapping folder (headless mode)                         |
+| `--attack_menu` | `False`          | Enable interactive attack menu                                      |
 
-## Attack Mode Arguments
+---
 
-| Argument | Type | Choices | Default | Description |
-|----------|------|---------|---------|-------------|
-| `--mode` | str | train, attack | **Required** | Operating mode |
-| `--iterations` | int | - | 100 | Number of attack iterations |
-| `--tolerance` | float | - | 0.000001 | Attack convergence tolerance |
-| `--alpha` | float | - | 0.01 | Attack step size |
-| `--epsilon` | float | - | 0.3 | Maximum perturbation (L∞ norm) |
-| `--attack_menu` | flag | - | False | Use interactive attack menu |
-| `--type` | str | PGD, CPGD | PGD | Attack type (for headless mode) |
-| `--map` | str | - | Attack/Mapping | Path to CPGD mapping folder |
-| `--batch_size` | int | - | 64 | Batch size for evaluation |
-| `--num_workers` | int | - | 4 | Number of dataloader workers |
+## Contributors
 
-## Supported Datasets
+| Name               | Role         | GitHub                                             |
+| ------------------ | ------------ | -------------------------------------------------- |
+| Alexander Green    | Co-developer | [@alexneilgreen](https://github.com/alexneilgreen) |
+| Ernest Wheaton III | Co-developer | [@chivey-gnome](https://github.com/chivey-gnome)   |
 
-- **MNIST**: Handwritten digits (28×28, grayscale)
-- **KMNIST**: Japanese characters (28×28, grayscale)
-- **CIFAR-10**: Natural images, 10 classes (32×32, RGB)
-- **CIFAR-100**: Natural images, 100 classes (32×32, RGB)
-- **STL-10**: Natural images, 10 classes (96×96, RGB)
-- **SVHN**: Street View House Numbers (32×32, RGB)
+---
 
-All datasets are automatically downloaded on first use.
+## Academic Integrity
 
-## Model Architectures
-
-### ResNet18
-- Custom implementation from scratch
-- Trained on 32×32 images (MNIST, KMNIST, CIFAR-10/100, SVHN)
-- Trained on 96×96 images (STL-10)
-- Mixed precision training (FP16)
-- Early stopping with patience of 2 epochs
-
-### Vision Transformer (ViT-Tiny)
-- Based on `WinKawaks/vit-tiny-patch16-224`
-- All images resized to 224×224
-- Fine-tuned for each dataset
-- Uses HuggingFace Trainer
-
-## Attack Algorithms
-
-### PGD (Projected Gradient Descent)
-Untargeted white-box attack that maximizes classification loss:
-- Iteratively perturbs input images
-- Projects perturbations to L∞ ball of radius ε
-- Goal: Cause misclassification to any wrong class
-
-### CPGD (Controlled PGD)
-Targeted white-box attack using predefined class mappings:
-- Uses CSV mapping files to specify source → target class
-- Minimizes loss for target class (reverse gradient)
-- Goal: Force misclassification to specific target class
-- Requires mapping file with appropriate number of classes
-
-## Class Mapping Files
-
-CPGD attacks require class mapping CSV files in the format:
-```
-0,5
-1,3
-2,7
-...
-```
-
-Where each line maps `source_class,target_class`.
-
-Provided mappings:
-- `10class.csv`: For MNIST, KMNIST, CIFAR-10, STL-10, SVHN
-- `100class.csv`: For CIFAR-100
-
-## Output Files
-
-### Training Metrics
-Saved to `Output/Models/Training_Metrics.csv`:
-- Model architecture
-- Dataset
-- Epochs completed
-- Learning rate and batch size
-- Training and test accuracy
-- Early stopping indicator
-
-### Attack Results
-Saved to `Output/Results/{iterations}_iterations_{alpha}_alpha/`:
-- Global Attack Success Rate (GASR)
-- Model accuracy under attack
-- Individual Attack Success Rate (IASR) per class
-- For CPGD: Targeted success rates per class
-- Example visualization images (when using interactive mode)
-
-## Notes
-
-- GPU acceleration is automatically used when available
-- Models are saved after training and can be reused
-- Use `--retrain` flag to overwrite existing models
-- Attack results are organized by hyperparameters for easy comparison
-- Interactive mode allows generating visualization examples of attacks
-
-## Authors
-
-**Alexander Green** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Master of Science in Computer Engineering (MSCpE)<br>
-Dept. of Electrical and Computer Engineering, University of Central Florida<br>
-[GitHub Home](https://github.com/alexneilgreen)
-
-**Ernest Wheaton III** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Master of Science in Computer Science (MSCS)<br>
-Dept. of Computer Science, University of Central Florida<br>
-[GitHub Home](https://github.com/chivey-gnome)
+This repository is publicly available for **portfolio and reference purposes only**.
+Please do not submit any part of this work as your own for academic coursework.
