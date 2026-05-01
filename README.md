@@ -115,8 +115,8 @@ Key indicators: a GASR above ~80% at default hyperparameters indicates a success
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/alexneilgreen/UCF-CAP6938-CPGDAttackFramework.git
-cd UCF-CAP6938-CPGDAttackFramework
+git clone https://github.com/alexneilgreen/UCF-TrustworthyML-ControlledPGD.git
+cd UCF-TrustworthyML-ControlledPGD
 
 # 2. Install dependencies
 pip install -r requirements.txt
