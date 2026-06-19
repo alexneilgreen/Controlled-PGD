@@ -1,11 +1,13 @@
 from torch import device, cuda
 import torch
+import os
 from dataclasses import dataclass
 from typing import Optional
 
 from Attack.PGD import PGD
 from Attack.CPGD import CPGD
 from Output.Results.Reporter import SimpleAccReporter, TargetedSuccessReporter
+from Output.Transfer.TransferOutput import TransferOutput
 
 dev = device("cuda" if cuda.is_available() else "cpu")
 
@@ -81,12 +83,13 @@ class UntargetedAttack:
 
 
 class TargetedAttack:
-    def __init__(self, model, loss, dataloader, num_classes=10, mapping=None, save_path=None, **kwargs):
+    def __init__(self, model, loss, dataloader, num_classes=10, mapping=None, save_path=None, dataset_save_path=None, **kwargs):
         self.model = model
         self.loss = loss
         self.dataloader = dataloader
         self.num_classes = num_classes
         self.save_path = save_path
+        self.adv_ds_save_path = dataset_save_path
 
         iterations = kwargs.get('iterations', 100)
         tolerance = kwargs.get('tolerance', 0.000001)
@@ -108,9 +111,9 @@ class TargetedAttack:
         if mapping is not None:
             self.cpgd = CPGD(iterations=iterations, tolerance=tolerance, 
                         num_classes=num_classes, epsilon=epsilon, alpha=alpha, mapping=mapping)
-
             self.reporter = SimpleAccReporter(save_path=save_path, is_targeted=True, attack_params=self.attack_params)
             self.targeted_reporter = TargetedSuccessReporter(num_classes, mapping if mapping else self.cpgd.mapping, save_path=save_path, attack_params=self.attack_params)
+            self.adv_reporter = TransferOutput(self.adv_ds_save_path)
         else:
             print("\n No mapping for CPGD attack. Please restart with mapping.")
 
@@ -152,6 +155,8 @@ class TargetedAttack:
                 advlabel.cpu(),
                 target_labels.cpu()
             )
+
+            self.adv_reporter.output(label, advlabel, advx)
             
             if (batch_idx + 1) % 10 == 0:
                 print(f"Processed {batch_idx + 1}/{len(self.dataloader)} batches")

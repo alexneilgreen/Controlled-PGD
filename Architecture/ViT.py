@@ -35,7 +35,7 @@ class ViT():
     
     def zero_grad(self):
         self.model.zero_grad()
-    
+
     def get_logits(self, input):
         output = self.model(input)
         if isinstance(output, ImageClassifierOutput):

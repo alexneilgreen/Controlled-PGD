@@ -517,6 +517,9 @@ def attack_models_mode(args):
                 generate_attack_examples(model, test_loader, attack, loss_fn, save_path, 'PGD')
         else:
             save_path = f"{results_dir}/{model_name}_{dataset_name}_cpgd.txt"
+            ds_save_path =  os.path.join(results_dir, "adv")
+            if not os.path.exists(ds_save_path):
+                os.mkdir(ds_save_path)
             attack = TargetedAttack(
                 model=model,
                 loss=loss_fn,
@@ -524,6 +527,7 @@ def attack_models_mode(args):
                 num_classes=num_classes,
                 mapping=mapping,
                 save_path=save_path,
+                dataset_save_path=ds_save_path,
                 iterations=args.iterations,
                 tolerance=args.tolerance,
                 epsilon=args.epsilon,
